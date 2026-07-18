@@ -17,8 +17,8 @@ export default function ARApp() {
         It handles the OS-level camera API for both Apple and Android natively! 
       */}
       <model-viewer
-        src="/cpr-dummy.glb"           // What Android uses
-        ios-src="/cpr-dummy.usdz"      // What iPhone uses
+        src="/assets/New-CPR-dummy.glb"           // What Android uses
+        ios-src="/assets/New-CPR-dummy.usdz"      // What iPhone uses
         ar                             // Tells the browser to enable AR capabilities
         ar-modes="webxr scene-viewer quick-look" // The fallback order for different phones
         camera-controls                // Lets the user rotate it on screen before entering AR
