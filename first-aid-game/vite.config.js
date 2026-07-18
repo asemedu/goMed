@@ -9,7 +9,7 @@ export default defineConfig({
   ],
   server: {
     // This allows your specific ngrok URL:
-    allowedHosts: ['morse-trustless-speed.ngrok-free.dev'], 
-    
+    allowedHosts: ['morse-trustless-speed.ngrok-free.dev', 'atlas-grandma-portable.ngrok-free.dev'],
+
   }
 })
