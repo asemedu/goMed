@@ -1,117 +1,109 @@
-// src/App.jsx
-import { useState, useEffect } from 'react'
-import { supabase } from './lib/supabaseClient'
+import { useRef, useEffect, useState } from 'react';
+import Webcam from 'react-webcam';
+import { FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision';
 
 export default function App() {
-  const [session, setSession] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [message, setMessage] = useState('')
+  const webcamRef = useRef(null);
+  const canvasRef = useRef(null);
+  const [isAiLoaded, setIsAiLoaded] = useState(false);
+  
+  // We store the AI engine in a reference so it persists between React renders
+  const landmarkerRef = useRef(null); 
 
-  // 1. Check for an active session when the app loads
+  // 1. INITIALIZE THE AI
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-    })
+    async function loadAI() {
+      // Fetch the WebAssembly core from Google's CDN
+      const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+      );
+      
+      // Load the specific "Pose" model
+      landmarkerRef.current = await PoseLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+          delegate: "GPU" // Use the phone's graphics chip for speed
+        },
+        runningMode: "VIDEO", // Tell it we are feeding it a live camera, not a static photo
+      });
 
-    // Listen for changes (like if they log in or log out)
-    supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-    })
-  }, [])
+      setIsAiLoaded(true);
+    }
+    loadAI();
+  }, []);
 
-  // 2. Handle User Sign Up
-  const handleSignUp = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setMessage('')
-    
-    const { error } = await supabase.auth.signUp({ email, password })
-    
-    if (error) setMessage(error.message)
-    else setMessage('Check your email to verify your account (if email confirmation is turned on).')
-    
-    setLoading(false)
-  }
+  // 2. THE GAME LOOP (Runs 30 times a second)
+  const runPrediction = () => {
+    if (
+      webcamRef.current && 
+      webcamRef.current.video.readyState === 4 && 
+      landmarkerRef.current
+    ) {
+      const video = webcamRef.current.video;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
 
-  // 3. Handle User Sign In
-  const handleSignIn = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setMessage('')
-    
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    
-    if (error) setMessage(error.message)
-    setLoading(false)
-  }
+      // Match canvas internal size to the video resolution
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
 
-  // 4. Handle Logout
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-  }
+      // Ask the AI: "Where is the person in this specific video frame?"
+      // performance.now() acts as a timestamp so the AI knows the video is moving forward
+      const results = landmarkerRef.current.detectForVideo(video, performance.now());
 
-  // --- RENDER LOGGED IN VIEW ---
-  if (session) {
-    return (
-      <div className="p-8 text-white">
-        <h1 className="text-2xl font-bold mb-4">You are logged in!</h1>
-        <p className="text-gray-400 mb-4">Email: {session.user.email}</p>
-        <button 
-          onClick={handleSignOut}
-          className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded font-bold"
-        >
-          Sign Out
-        </button>
-      </div>
-    )
-  }
+      // Clear the previous frame's drawings
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // --- RENDER LOGGED OUT (AUTH) VIEW ---
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 text-white">
-      <div className="w-full max-w-sm p-6 bg-neutral-900 rounded-xl border border-neutral-800 shadow-xl">
-        <h1 className="text-2xl font-bold mb-6 text-center">First Aid AR</h1>
+      // If the AI sees a human, draw on them!
+      if (results.landmarks && results.landmarks.length > 0) {
+        const skeleton = results.landmarks[0]; // Get the first person it sees
+
+        // Example: Grab the Nose (index 0), Left Wrist (15), and Right Wrist (16)
+        const nose = skeleton[0];
+        const leftWrist = skeleton[15];
+        const rightWrist = skeleton[16];
+
+        // Draw a neon green dot exactly on the nose
+        ctx.beginPath();
+        ctx.arc(nose.x * canvas.width, nose.y * canvas.height, 10, 0, 2 * Math.PI);
+        ctx.fillStyle = "#00FF00";
+        ctx.fill();
         
-        <form className="flex flex-col gap-4">
-          <input
-            type="email"
-            placeholder="Email address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="p-3 bg-neutral-950 border border-neutral-800 rounded focus:border-blue-500 outline-none"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="p-3 bg-neutral-950 border border-neutral-800 rounded focus:border-blue-500 outline-none"
-          />
+        // Draw blue dots on the wrists
+        ctx.beginPath();
+        ctx.arc(leftWrist.x * canvas.width, leftWrist.y * canvas.height, 15, 0, 2 * Math.PI);
+        ctx.arc(rightWrist.x * canvas.width, rightWrist.y * canvas.height, 15, 0, 2 * Math.PI);
+        ctx.fillStyle = "#00BFFF";
+        ctx.fill();
+      }
+    }
+    
+    // Keep looping forever
+    requestAnimationFrame(runPrediction);
+  };
 
-          {message && (
-            <p className="text-sm text-red-400 text-center">{message}</p>
-          )}
+  return (
+    <div className="h-screen w-screen bg-black flex flex-col items-center justify-center">
+      
+      <div className="absolute top-6 z-10 text-white font-bold tracking-widest uppercase">
+        {isAiLoaded ? "AI is Ready - Step into frame!" : "Downloading AI Brain..."}
+      </div>
 
-          <div className="flex gap-2 mt-2">
-            <button
-              onClick={handleSignIn}
-              disabled={loading}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 py-3 rounded font-bold transition"
-            >
-              Sign In
-            </button>
-            <button
-              onClick={handleSignUp}
-              disabled={loading}
-              className="flex-1 bg-neutral-700 hover:bg-neutral-600 disabled:opacity-50 py-3 rounded font-bold transition"
-            >
-              Sign Up
-            </button>
-          </div>
-        </form>
+      <div className="relative w-full max-w-md h-[80vh] bg-neutral-900 rounded-3xl overflow-hidden border border-neutral-800">
+        
+        {/* The Real World */}
+        <Webcam
+          ref={webcamRef}
+          onUserMedia={runPrediction} // Start the loop the second the camera turns on
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        
+        {/* The Augmented Reality Layer */}
+        <canvas 
+          ref={canvasRef} 
+          className="absolute inset-0 w-full h-full z-10 pointer-events-none object-cover" 
+        />
       </div>
     </div>
-  )
+  );
 }
