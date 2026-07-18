@@ -1,58 +1,117 @@
-import { useState } from 'react';
-import { Trophy, Activity, Camera } from 'lucide-react';
+// src/App.jsx
+import { useState, useEffect } from 'react'
+import { supabase } from './lib/supabaseClient'
 
 export default function App() {
-  const [gameState, setGameState] = useState('lobby'); // lobby, active, results
+  const [session, setSession] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [message, setMessage] = useState('')
 
+  // 1. Check for an active session when the app loads
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+    })
+
+    // Listen for changes (like if they log in or log out)
+    supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+  }, [])
+
+  // 2. Handle User Sign Up
+  const handleSignUp = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setMessage('')
+    
+    const { error } = await supabase.auth.signUp({ email, password })
+    
+    if (error) setMessage(error.message)
+    else setMessage('Check your email to verify your account (if email confirmation is turned on).')
+    
+    setLoading(false)
+  }
+
+  // 3. Handle User Sign In
+  const handleSignIn = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setMessage('')
+    
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    
+    if (error) setMessage(error.message)
+    setLoading(false)
+  }
+
+  // 4. Handle Logout
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+  }
+
+  // --- RENDER LOGGED IN VIEW ---
+  if (session) {
+    return (
+      <div className="p-8 text-white">
+        <h1 className="text-2xl font-bold mb-4">You are logged in!</h1>
+        <p className="text-gray-400 mb-4">Email: {session.user.email}</p>
+        <button 
+          onClick={handleSignOut}
+          className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded font-bold"
+        >
+          Sign Out
+        </button>
+      </div>
+    )
+  }
+
+  // --- RENDER LOGGED OUT (AUTH) VIEW ---
   return (
-    <div className="relative w-screen h-screen bg-neutral-950 flex flex-col justify-between p-6 overflow-hidden select-none">
-      
-      {/* Premium HUD Header */}
-      <header className="w-full max-w-xl mx-auto flex justify-between items-center bg-white/5 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-2xl z-50">
-        <div className="flex items-center gap-2">
-          <Activity className="text-emerald-400 animate-pulse" size={24} />
-          <span className="font-bold tracking-wide uppercase text-sm">Rescuer Room #402</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="text-right">
-            <p className="text-xs text-neutral-400 font-medium">Global Rank</p>
-            <p className="text-sm font-bold text-amber-400 flex items-center gap-1 justify-end">
-              <Trophy size={14} /> #12
-            </p>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Canvas Area (Where the Video & 3D will sit) */}
-      <main className="absolute inset-0 w-full h-full flex items-center justify-center bg-neutral-900">
-        {gameState === 'lobby' ? (
-          <div className="text-center max-w-xs space-y-4 z-50">
-            <h1 className="text-3xl font-black uppercase tracking-tight">First Aid AR</h1>
-            <p className="text-sm text-neutral-400">Position your phone on the floor at a side angle to calibrate body posture tracking.</p>
-            <button 
-              onClick={() => setGameState('active')}
-              className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 active:scale-98 transition font-bold text-black rounded-xl shadow-lg shadow-emerald-500/20 uppercase tracking-wider text-sm"
-            >
-              Start Practice Session
-            </button>
-          </div>
-        ) : (
-          <div className="absolute bottom-10 z-50">
-            <button 
-              onClick={() => setGameState('lobby')}
-              className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-semibold backdrop-blur"
-            >
-              Exit to Lobby
-            </button>
-          </div>
-        )}
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 text-white">
+      <div className="w-full max-w-sm p-6 bg-neutral-900 rounded-xl border border-neutral-800 shadow-xl">
+        <h1 className="text-2xl font-bold mb-6 text-center">First Aid AR</h1>
         
-        {/* Placeholder representation for the camera stream layout */}
-        <div className="absolute inset-0 opacity-20 flex items-center justify-center pointer-events-none">
-          <Camera size={80} className="text-neutral-700" />
-        </div>
-      </main>
+        <form className="flex flex-col gap-4">
+          <input
+            type="email"
+            placeholder="Email address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="p-3 bg-neutral-950 border border-neutral-800 rounded focus:border-blue-500 outline-none"
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="p-3 bg-neutral-950 border border-neutral-800 rounded focus:border-blue-500 outline-none"
+          />
 
+          {message && (
+            <p className="text-sm text-red-400 text-center">{message}</p>
+          )}
+
+          <div className="flex gap-2 mt-2">
+            <button
+              onClick={handleSignIn}
+              disabled={loading}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 py-3 rounded font-bold transition"
+            >
+              Sign In
+            </button>
+            <button
+              onClick={handleSignUp}
+              disabled={loading}
+              className="flex-1 bg-neutral-700 hover:bg-neutral-600 disabled:opacity-50 py-3 rounded font-bold transition"
+            >
+              Sign Up
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
-  );
+  )
 }
