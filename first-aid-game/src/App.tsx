@@ -4,6 +4,7 @@ import './styles/globals.css';
 import './styles/theme.css';
 import './styles/index.css';
 import './App.css';
+import { supabase } from './lib/supabaseClient';
 
 import { useState, useEffect } from "react";
 import {
@@ -364,6 +365,44 @@ function AuthScreen({ onNext }: { onNext: () => void }) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPw, setShowPw] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const handleAuth = async () => {
+    setErrorMsg("");
+    if (!username || !password) {
+      setErrorMsg("Please fill in all fields.");
+      return;
+    }
+
+    if (mode === "signup" && password !== confirm) {
+      setErrorMsg("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (mode === "signup") {
+        const { error } = await supabase.auth.signUp({
+          email: username,
+          password: password,
+        });
+        if (error) throw error;
+        onNext();
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: username,
+          password: password,
+        });
+        if (error) throw error;
+        onNext();
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "Authentication failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex flex-col px-7 py-7" style={{ minHeight: 740 }}>
@@ -480,12 +519,19 @@ function AuthScreen({ onNext }: { onNext: () => void }) {
           )}
         </div>
 
+        {errorMsg && (
+          <div className="mt-4 bg-[#FFF4F6] border border-[#FCC8D0] text-[#C0384E] text-[13px] px-4 py-3 rounded-xl font-semibold" style={{ fontFamily: "'Nunito', sans-serif" }}>
+            {errorMsg}
+          </div>
+        )}
+
         <button
-          onClick={onNext}
-          className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[17px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all duration-150 mt-6"
+          onClick={handleAuth}
+          disabled={loading}
+          className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[17px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all duration-150 mt-6 disabled:opacity-70 disabled:active:scale-100"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          {mode === "login" ? "Log In" : "Create Account"}
+          {loading ? "Please wait..." : (mode === "login" ? "Log In" : "Create Account")}
         </button>
 
         <p
