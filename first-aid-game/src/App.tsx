@@ -234,7 +234,7 @@ function CPRScreen({ onNext }: { onNext: () => void }) {
 
       {/* Model Viewer Container */}
       <div className="flex-1 w-full relative min-h-[400px]">
-        
+
         {/* Play/Pause Button Overlay for Web Viewer */}
         <div className="absolute top-4 right-4 z-10">
           <button
@@ -556,8 +556,8 @@ function AuthScreen({ onNext }: { onNext: () => void }) {
               key={m}
               onClick={() => setMode(m)}
               className={`flex-1 py-2 rounded-lg text-[13px] font-bold transition-all duration-200 ${mode === m
-                  ? "bg-white text-[#1A2816] shadow-sm"
-                  : "text-[#6B7C6B]"
+                ? "bg-white text-[#1A2816] shadow-sm"
+                : "text-[#6B7C6B]"
                 }`}
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
