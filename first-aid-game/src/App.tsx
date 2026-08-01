@@ -1,12 +1,13 @@
 import './styles/fonts.css';
 import './styles/tailwind.css';
 import './styles/globals.css';
-import './styles/theme.css';
 import './styles/index.css';
 import './App.css';
 import { supabase } from './lib/supabaseClient';
+import Webcam from 'react-webcam';
+import jsQR from 'jsqr';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Heart, Shield, QrCode, ChevronRight, Smartphone,
   Zap, Users, Trophy, BookOpen, Lock,
@@ -771,6 +772,36 @@ function DashboardScreen({ onScan }: { onScan: () => void }) {
 function LobbyScreen() {
   const [code, setCode] = useState("");
   const participants = ["Alex C.", "Maria L.", "James K."];
+  const webcamRef = useRef<Webcam>(null);
+
+  const capture = useCallback(() => {
+    if (webcamRef.current) {
+      const imageSrc = webcamRef.current.getScreenshot();
+      if (imageSrc) {
+        const image = new Image();
+        image.src = imageSrc;
+        image.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = image.width;
+          canvas.height = image.height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const qrCodeData = jsQR(imageData.data, imageData.width, imageData.height);
+            if (qrCodeData) {
+              setCode(qrCodeData.data);
+            }
+          }
+        };
+      }
+    }
+  }, [webcamRef]);
+
+  useEffect(() => {
+    const interval = setInterval(capture, 500); // scan every 500ms
+    return () => clearInterval(interval);
+  }, [capture]);
 
   return (
     <div className="flex flex-col px-5 py-5" style={{ minHeight: 740 }}>
@@ -792,6 +823,16 @@ function LobbyScreen() {
       {/* Camera viewfinder */}
       <div className="bg-[#1A2816] rounded-3xl overflow-hidden mb-5 relative mx-auto w-full"
         style={{ aspectRatio: "1/1", maxWidth: 300 }}>
+        
+        {/* Real camera feed */}
+        <Webcam
+          audio={false}
+          ref={webcamRef}
+          screenshotFormat="image/jpeg"
+          videoConstraints={{ facingMode: "environment" }}
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+
         {/* Corner brackets */}
         {([
           ["top-4 left-4", "rounded-tl-xl border-t-2 border-l-2 border-r-0 border-b-0"],
@@ -805,7 +846,7 @@ function LobbyScreen() {
           />
         ))}
 
-        {/* Scan line */}
+        {/* Scan line overlay over webcam */}
         <div
           className="absolute left-8 right-8 h-0.5 bg-[#B3D59F]/70 z-10"
           style={{
@@ -814,17 +855,6 @@ function LobbyScreen() {
             animation: "scanline 2.2s ease-in-out infinite",
           }}
         />
-
-        {/* Camera icon center */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-          <Camera size={40} className="text-white/25" />
-          <span
-            className="text-white/40 text-[12px] font-semibold"
-            style={{ fontFamily: "'Nunito', sans-serif" }}
-          >
-            Point camera at QR code
-          </span>
-        </div>
 
         {/* Bottom label */}
         <div className="absolute bottom-4 left-0 right-0 flex justify-center z-10">
@@ -976,15 +1006,28 @@ export default function App() {
         {/* The "Invisible Frame" that fixes the layout and scrolling */}
         <div className="w-full sm:max-w-[390px] h-[100dvh] sm:h-[820px] bg-white sm:rounded-[48px] sm:shadow-2xl overflow-hidden flex flex-col relative">
           
-          {/* Back Button Overlay */}
+          {/* Back Button Header */}
           {historyStack.length > 1 && (
-            <button
-              onClick={goBack}
-              className="absolute top-6 left-5 z-50 w-10 h-10 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-[#E8EDE6] flex items-center justify-center text-[#1A2816] hover:bg-white active:scale-95 transition-all"
-              aria-label="Go back"
-            >
-              <ArrowLeft size={20} strokeWidth={2.5} />
-            </button>
+            <div className="w-full px-5 pt-5 pb-1 flex items-center justify-between z-10 shrink-0 bg-transparent gap-2">
+              <button
+                onClick={goBack}
+                className="w-10 h-10 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-[#E8EDE6] flex items-center justify-center text-[#1A2816] hover:bg-white active:scale-95 transition-all shrink-0"
+                aria-label="Go back"
+              >
+                <ArrowLeft size={20} strokeWidth={2.5} />
+              </button>
+
+              <span 
+                className="flex-1 text-center text-[10px] sm:text-[11px] font-extrabold text-[#1A3312] leading-tight uppercase tracking-wide"
+                style={{ fontFamily: "'Lexend', sans-serif" }}
+              >
+                Asociatia pentru Sustinerea<br/>Educatiei Medicale
+              </span>
+
+              <div className="w-10 h-10 flex items-center justify-center shrink-0 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-[#E8EDE6] p-0.5 overflow-hidden">
+                <img src="/logo_asem.png" alt="ASEM Logo" className="w-full h-full object-contain" />
+              </div>
+            </div>
           )}
           
           {/* This inner div is what actually enables the scrolling! */}
