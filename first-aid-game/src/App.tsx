@@ -5,12 +5,12 @@ import './styles/theme.css';
 import './styles/index.css';
 import './App.css';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Heart, Shield, QrCode, ChevronRight, Smartphone,
   Zap, Users, Trophy, BookOpen, Lock,
   Eye, EyeOff, CheckCircle, Wifi, Camera,
-  ArrowRight, Send, Clock, Star, Apple,
+  ArrowRight, Send, Clock, Star, Apple, ArrowLeft,
 } from "lucide-react";
 
 type Screen = "landing" | "onboarding" | "auth" | "dashboard" | "lobby";
@@ -880,9 +880,36 @@ function LobbyScreen() {
 
 // ─── App shell ───────────────────────────────────────────────────────
 export default function App() {
-  const [current, setCurrent] = useState<Screen>("landing");
+  const [historyStack, setHistoryStack] = useState<Screen[]>(["landing"]);
+  const current = historyStack[historyStack.length - 1];
 
-  const navigate = (s: Screen) => setCurrent(s);
+  useEffect(() => {
+    // Set initial state in history so we can detect back navigation to it
+    window.history.replaceState({ screen: "landing", index: 0 }, "");
+
+    const handlePopState = (e: PopStateEvent) => {
+      if (e.state && typeof e.state.index === "number") {
+        const newIndex = e.state.index;
+        // Keep the stack aligned with the history index
+        setHistoryStack(prev => prev.slice(0, newIndex + 1));
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const navigate = (s: Screen) => {
+    const newIndex = historyStack.length;
+    window.history.pushState({ screen: s, index: newIndex }, "", `?screen=${s}`);
+    setHistoryStack(prev => [...prev, s]);
+  };
+
+  const goBack = () => {
+    if (historyStack.length > 1) {
+      window.history.back();
+    }
+  };
 
   return (
     <>
@@ -902,6 +929,17 @@ export default function App() {
       >
         {/* The "Invisible Frame" that fixes the layout and scrolling */}
         <div className="w-full sm:max-w-[390px] h-[100dvh] sm:h-[820px] bg-white sm:rounded-[48px] sm:shadow-2xl overflow-hidden flex flex-col relative">
+          
+          {/* Back Button Overlay */}
+          {historyStack.length > 1 && (
+            <button
+              onClick={goBack}
+              className="absolute top-6 left-5 z-50 w-10 h-10 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-[#E8EDE6] flex items-center justify-center text-[#1A2816] hover:bg-white active:scale-95 transition-all"
+              aria-label="Go back"
+            >
+              <ArrowLeft size={20} strokeWidth={2.5} />
+            </button>
+          )}
           
           {/* This inner div is what actually enables the scrolling! */}
           <div className="flex-1 overflow-y-auto scrollbar-none relative">
