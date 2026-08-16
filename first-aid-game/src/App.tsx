@@ -35,7 +35,7 @@ import {
   Zap, Users, Trophy, BookOpen, Lock,
   Eye, EyeOff, CheckCircle, Wifi, Camera,
   ArrowRight, Send, Clock, Star, Apple, ArrowLeft,
-  Play, Pause
+  Play, Pause, X
 } from "lucide-react";
 
 type Screen = "landing" | "cpr" | "onboarding" | "auth" | "dashboard" | "lobby";
@@ -488,9 +488,34 @@ function AuthScreen({ onNext }: { onNext: () => void }) {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [infoMsg, setInfoMsg] = useState("");
+
+  const handleForgotPassword = async () => {
+    setErrorMsg("");
+    setInfoMsg("");
+
+    if (!username.trim()) {
+      setErrorMsg("Please enter your email in the field above first.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(username.trim(), {
+        redirectTo: window.location.origin,
+      });
+      if (error) throw error;
+      setInfoMsg("Password reset link has been sent to your email!");
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to send reset link.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAuth = async () => {
     setErrorMsg("");
+    setInfoMsg("");
     if (!username || !password) {
       setErrorMsg("Please fill in all fields.");
       return;
@@ -554,7 +579,11 @@ function AuthScreen({ onNext }: { onNext: () => void }) {
           {(["login", "signup"] as const).map((m) => (
             <button
               key={m}
-              onClick={() => setMode(m)}
+              onClick={() => {
+                setMode(m);
+                setErrorMsg("");
+                setInfoMsg("");
+              }}
               className={`flex-1 py-2 rounded-lg text-[13px] font-bold transition-all duration-200 ${mode === m
                 ? "bg-white text-[#1A2816] shadow-sm"
                 : "text-[#6B7C6B]"
@@ -612,7 +641,10 @@ function AuthScreen({ onNext }: { onNext: () => void }) {
           {mode === "login" && (
             <div className="text-right">
               <button
-                className="text-[13px] text-[#3D6B2A] font-bold hover:underline"
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={loading}
+                className="text-[13px] text-[#3D6B2A] font-bold hover:underline disabled:opacity-50"
                 style={{ fontFamily: "'Nunito', sans-serif" }}
               >
                 Forgot password?
@@ -638,6 +670,12 @@ function AuthScreen({ onNext }: { onNext: () => void }) {
             </div>
           )}
         </div>
+
+        {infoMsg && (
+          <div className="mt-4 bg-[#F0F8EC] border border-[#D4ECC5] text-[#3D6B2A] text-[13px] px-4 py-3 rounded-xl font-semibold" style={{ fontFamily: "'Nunito', sans-serif" }}>
+            {infoMsg}
+          </div>
+        )}
 
         {errorMsg && (
           <div className="mt-4 bg-[#FFF4F6] border border-[#FCC8D0] text-[#C0384E] text-[13px] px-4 py-3 rounded-xl font-semibold" style={{ fontFamily: "'Nunito', sans-serif" }}>
@@ -1073,9 +1111,171 @@ function LobbyScreen() {
   );
 }
 
+// ─── Reset Password Modal ─────────────────────────────────────────────
+function ResetPasswordModal({
+  isOpen,
+  onClose,
+  onSuccess,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleUpdate = async () => {
+    setErrorMsg("");
+    if (!newPassword) {
+      setErrorMsg("Please enter a new password.");
+      return;
+    }
+    if (newPassword.length < 6) {
+      setErrorMsg("Password must be at least 6 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setErrorMsg("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setIsSuccess(true);
+      setTimeout(() => {
+        setIsSuccess(false);
+        onSuccess();
+        onClose();
+      }, 1500);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to update password.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div
+        className="w-full max-w-[350px] bg-white rounded-3xl p-6 shadow-2xl border border-[#E8EDE6] relative"
+        style={{ fontFamily: "'Nunito', sans-serif" }}
+      >
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-[#A0B09A] hover:text-[#1A2816] transition-colors p-1.5 rounded-full hover:bg-[#F0F5EE]"
+          aria-label="Close"
+        >
+          <X size={18} />
+        </button>
+
+        {isSuccess ? (
+          <div className="py-6 text-center flex flex-col items-center">
+            <div className="w-14 h-14 rounded-2xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center mb-4">
+              <CheckCircle size={28} className="text-[#3D6B2A]" />
+            </div>
+            <h3
+              className="text-[20px] font-extrabold text-[#1A2816]"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              Password Updated!
+            </h3>
+            <p className="text-[13px] text-[#6B7C6B] mt-1">
+              Your password has been changed successfully.
+            </p>
+          </div>
+        ) : (
+          <div>
+            <div className="w-12 h-12 rounded-2xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center mb-4">
+              <Lock size={22} className="text-[#3D6B2A]" />
+            </div>
+
+            <h3
+              className="text-[20px] font-extrabold text-[#1A2816]"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              Set New Password
+            </h3>
+            <p className="text-[13px] text-[#6B7C6B] mt-0.5 mb-5">
+              Enter and confirm your new account password.
+            </p>
+
+            <div className="space-y-3.5">
+              <div>
+                <label
+                  className="text-[12px] font-bold text-[#1A2816] mb-1 block"
+                  style={{ fontFamily: "'Lexend', sans-serif" }}
+                >
+                  New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="At least 6 characters"
+                    className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#A0B09A] focus:outline-none focus:border-[#B3D59F] text-[13px]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A0B09A] hover:text-[#3D6B2A]"
+                  >
+                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label
+                  className="text-[12px] font-bold text-[#1A2816] mb-1 block"
+                  style={{ fontFamily: "'Lexend', sans-serif" }}
+                >
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#A0B09A] focus:outline-none focus:border-[#B3D59F] text-[13px]"
+                />
+              </div>
+            </div>
+
+            {errorMsg && (
+              <div className="mt-3 bg-[#FFF4F6] border border-[#FCC8D0] text-[#C0384E] text-[12px] px-3.5 py-2.5 rounded-xl font-semibold">
+                {errorMsg}
+              </div>
+            )}
+
+            <button
+              onClick={handleUpdate}
+              disabled={loading}
+              className="w-full py-3.5 rounded-xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[15px] shadow-sm hover:bg-[#9DC885] active:scale-[0.98] transition-all mt-5 disabled:opacity-60"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              {loading ? "Updating..." : "Update Password"}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── App shell ───────────────────────────────────────────────────────
 export default function App() {
   const [historyStack, setHistoryStack] = useState<Screen[]>(["landing"]);
+  const [showResetModal, setShowResetModal] = useState(false);
   const current = historyStack[historyStack.length - 1];
 
   useEffect(() => {
@@ -1091,7 +1291,22 @@ export default function App() {
     };
 
     window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
+
+    // Listen for password recovery from Supabase email link
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setShowResetModal(true);
+      }
+    });
+
+    if (window.location.hash.includes("type=recovery")) {
+      setShowResetModal(true);
+    }
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const navigate = (s: Screen) => {
@@ -1161,6 +1376,15 @@ export default function App() {
 
         </div>
       </div>
+
+      {/* Password Reset Modal */}
+      <ResetPasswordModal
+        isOpen={showResetModal}
+        onClose={() => setShowResetModal(false)}
+        onSuccess={() => {
+          navigate("auth");
+        }}
+      />
     </>
   );
 }
