@@ -35,12 +35,12 @@ import {
   Zap, Users, Trophy, BookOpen, Lock,
   Eye, EyeOff, CheckCircle, Wifi, Camera,
   ArrowRight, Send, Clock, Star, Apple, ArrowLeft,
-  Play, Pause
+  Play, Pause, X, User, Mail, Edit3, Key, LogOut, Check
 } from "lucide-react";
 
-type Screen = "landing" | "cpr" | "onboarding" | "auth" | "dashboard" | "lobby";
-const SCREENS: Screen[] = ["landing", "cpr", "onboarding", "auth", "dashboard", "lobby"];
-const LABELS = ["Landing", "CPR 3D", "Onboard", "Sign In", "Dashboard", "Lobby"];
+type Screen = "landing" | "cpr" | "onboarding" | "auth" | "dashboard" | "lobby" | "profile";
+const SCREENS: Screen[] = ["landing", "cpr", "onboarding", "auth", "dashboard", "lobby", "profile"];
+const LABELS = ["Landing", "CPR 3D", "Onboard", "Sign In", "Dashboard", "Lobby", "Profile"];
 
 // Simple SVG QR code pattern
 function QRCodeSVG({ size = 120 }: { size?: number }) {
@@ -482,23 +482,55 @@ function OnboardingScreen({ onNext }: { onNext: () => void }) {
 // ─── Screen 3: Auth ──────────────────────────────────────────────────
 function AuthScreen({ onNext }: { onNext: () => void }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
+  const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [infoMsg, setInfoMsg] = useState("");
+
+  const handleForgotPassword = async () => {
+    setErrorMsg("");
+    setInfoMsg("");
+
+    if (!username.trim()) {
+      setErrorMsg("Please enter your email in the field above first.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(username.trim(), {
+        redirectTo: window.location.origin,
+      });
+      if (error) throw error;
+      setInfoMsg("Password reset link has been sent to your email!");
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to send reset link.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAuth = async () => {
     setErrorMsg("");
+    setInfoMsg("");
     if (!username || !password) {
       setErrorMsg("Please fill in all fields.");
       return;
     }
 
-    if (mode === "signup" && password !== confirm) {
-      setErrorMsg("Passwords do not match.");
-      return;
+    if (mode === "signup") {
+      if (!displayName.trim()) {
+        setErrorMsg("Please enter a display name.");
+        return;
+      }
+      if (password !== confirm) {
+        setErrorMsg("Passwords do not match.");
+        return;
+      }
     }
 
     setLoading(true);
@@ -507,6 +539,11 @@ function AuthScreen({ onNext }: { onNext: () => void }) {
         const { error } = await supabase.auth.signUp({
           email: username,
           password: password,
+          options: {
+            data: {
+              display_name: displayName.trim(),
+            },
+          },
         });
         if (error) throw error;
         onNext();
@@ -554,7 +591,11 @@ function AuthScreen({ onNext }: { onNext: () => void }) {
           {(["login", "signup"] as const).map((m) => (
             <button
               key={m}
-              onClick={() => setMode(m)}
+              onClick={() => {
+                setMode(m);
+                setErrorMsg("");
+                setInfoMsg("");
+              }}
               className={`flex-1 py-2 rounded-lg text-[13px] font-bold transition-all duration-200 ${mode === m
                 ? "bg-white text-[#1A2816] shadow-sm"
                 : "text-[#6B7C6B]"
@@ -568,18 +609,37 @@ function AuthScreen({ onNext }: { onNext: () => void }) {
 
         {/* Fields */}
         <div className="space-y-4">
+          {mode === "signup" && (
+            <div>
+              <label
+                className="text-[13px] font-bold text-[#1A2816] mb-1.5 block"
+                style={{ fontFamily: "'Lexend', sans-serif" }}
+              >
+                Display Name
+              </label>
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="e.g. Alex C. or Dr. Smith"
+                className="w-full px-4 py-3.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#A0B09A] focus:outline-none focus:border-[#B3D59F] focus:ring-2 focus:ring-[#B3D59F]/30 transition-all text-[14px]"
+                style={{ fontFamily: "'Nunito', sans-serif" }}
+              />
+            </div>
+          )}
+
           <div>
             <label
               className="text-[13px] font-bold text-[#1A2816] mb-1.5 block"
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
-              Username or Email
+              {mode === "signup" ? "Email Address" : "Username or Email"}
             </label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your username or email"
+              placeholder={mode === "signup" ? "Enter your email" : "Enter your username or email"}
               className="w-full px-4 py-3.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#A0B09A] focus:outline-none focus:border-[#B3D59F] focus:ring-2 focus:ring-[#B3D59F]/30 transition-all text-[14px]"
               style={{ fontFamily: "'Nunito', sans-serif" }}
             />
@@ -612,7 +672,10 @@ function AuthScreen({ onNext }: { onNext: () => void }) {
           {mode === "login" && (
             <div className="text-right">
               <button
-                className="text-[13px] text-[#3D6B2A] font-bold hover:underline"
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={loading}
+                className="text-[13px] text-[#3D6B2A] font-bold hover:underline disabled:opacity-50"
                 style={{ fontFamily: "'Nunito', sans-serif" }}
               >
                 Forgot password?
@@ -638,6 +701,12 @@ function AuthScreen({ onNext }: { onNext: () => void }) {
             </div>
           )}
         </div>
+
+        {infoMsg && (
+          <div className="mt-4 bg-[#F0F8EC] border border-[#D4ECC5] text-[#3D6B2A] text-[13px] px-4 py-3 rounded-xl font-semibold" style={{ fontFamily: "'Nunito', sans-serif" }}>
+            {infoMsg}
+          </div>
+        )}
 
         {errorMsg && (
           <div className="mt-4 bg-[#FFF4F6] border border-[#FCC8D0] text-[#C0384E] text-[13px] px-4 py-3 rounded-xl font-semibold" style={{ fontFamily: "'Nunito', sans-serif" }}>
@@ -686,10 +755,61 @@ function AuthScreen({ onNext }: { onNext: () => void }) {
 }
 
 // ─── Screen 4: Dashboard ─────────────────────────────────────────────
-function DashboardScreen({ onScan }: { onScan: () => void }) {
-  const xp = 1240;
-  const level = 7;
-  const progress = 68;
+function DashboardScreen({
+  onScan,
+  onOpenProfile,
+}: {
+  onScan: () => void;
+  onOpenProfile: () => void;
+}) {
+  const [profile, setProfile] = useState<{
+    display_name?: string;
+    points?: number;
+    ranking?: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data, error } = await supabase
+            .from("profiles")
+            .select("display_name, points, ranking")
+            .eq("id", user.id)
+            .single();
+
+          if (data && !error) {
+            setProfile(data);
+          } else {
+            setProfile({
+              display_name: user.user_metadata?.display_name || user.email?.split("@")[0] || "User",
+              points: 0,
+              ranking: 0,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching user profile:", err);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
+
+  const displayName = profile?.display_name || "";
+  const points = profile?.points ?? 0;
+  const rankDisplay = profile?.ranking && profile.ranking > 0 ? `#${profile.ranking}` : "—";
+
+  const getInitials = (name: string) => {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+  const initials = getInitials(displayName);
+
+  const level = Math.max(1, Math.floor(points / 200) + 1);
+  const progress = Math.min(100, Math.round(((points % 200) / 200) * 100));
 
   return (
     <div className="flex flex-col px-5 py-5" style={{ minHeight: 740 }}>
@@ -706,17 +826,22 @@ function DashboardScreen({ onScan }: { onScan: () => void }) {
             className="text-[22px] font-extrabold text-[#1A2816]"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            Alex Chen 👋
+            {displayName} 👋
           </h2>
         </div>
-        <div className="w-12 h-12 rounded-full bg-[#B3D59F] flex items-center justify-center shadow-sm">
+        <button
+          onClick={onOpenProfile}
+          className="w-12 h-12 rounded-full bg-[#B3D59F] flex items-center justify-center shadow-sm hover:bg-[#9DC885] active:scale-95 transition-all cursor-pointer border border-[#9DC885]/40"
+          title="View My Profile"
+          aria-label="View My Profile"
+        >
           <span
             className="text-[#1A3312] font-extrabold text-[15px]"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            AC
+            {initials}
           </span>
-        </div>
+        </button>
       </div>
 
       {/* Skill Score card */}
@@ -743,13 +868,13 @@ function DashboardScreen({ onScan }: { onScan: () => void }) {
               className="text-[42px] font-extrabold text-white leading-none"
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
-              {xp.toLocaleString()}
+              {points.toLocaleString()}
             </span>
             <span
               className="text-[#9DC885] text-[15px] mb-1.5 font-bold"
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
-              XP
+              PTS
             </span>
           </div>
           <div>
@@ -777,7 +902,7 @@ function DashboardScreen({ onScan }: { onScan: () => void }) {
               className="text-[#587058] text-[11px] mt-1.5"
               style={{ fontFamily: "'Nunito', sans-serif" }}
             >
-              {progress}% to next level · {(2000 - (xp % 2000)).toLocaleString()} XP needed
+              {progress}% to next level · {(200 - (points % 200)).toLocaleString()} PTS needed
             </p>
           </div>
         </div>
@@ -788,7 +913,7 @@ function DashboardScreen({ onScan }: { onScan: () => void }) {
         {[
           { label: "Challenges", value: "24", icon: Trophy },
           { label: "Day Streak", value: "7🔥", icon: Zap },
-          { label: "Global Rank", value: "#142", icon: Star },
+          { label: "Global Rank", value: rankDisplay, icon: Star },
         ].map(({ label, value, icon: Icon }) => (
           <div
             key={label}
@@ -883,6 +1008,358 @@ function DashboardScreen({ onScan }: { onScan: () => void }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ─── Screen: Profile ─────────────────────────────────────────────────
+function ProfileScreen({ onBack }: { onBack: () => void }) {
+  const [profile, setProfile] = useState<{
+    display_name?: string;
+    username?: string;
+    email?: string;
+    points?: number;
+    ranking?: number;
+  } | null>(null);
+
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editNameValue, setEditNameValue] = useState("");
+  const [savingName, setSavingName] = useState(false);
+
+  const [sendingReset, setSendingReset] = useState(false);
+  const [feedbackMsg, setFeedbackMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data } = await supabase
+            .from("profiles")
+            .select("display_name, points, ranking")
+            .eq("id", user.id)
+            .single();
+
+          const loadedName = data?.display_name || user.user_metadata?.display_name || "Alex Chen";
+          setProfile({
+            display_name: loadedName,
+            username: user.email?.split("@")[0] || "alexchen",
+            email: user.email || "alex.chen@example.com",
+            points: data?.points ?? 0,
+            ranking: data?.ranking ?? 0,
+          });
+          setEditNameValue(loadedName);
+        }
+      } catch (err) {
+        console.error("Error fetching profile:", err);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
+
+  const displayName = profile?.display_name || "Alex Chen";
+  const username = profile?.username || "alexchen";
+  const email = profile?.email || "alex.chen@example.com";
+  const points = profile?.points ?? 0;
+  const rankDisplay = profile?.ranking && profile.ranking > 0 ? `#${profile.ranking}` : "—";
+
+  const getInitials = (name: string) => {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+  const initials = getInitials(displayName);
+
+  // Handle saving new display name
+  const handleSaveDisplayName = async () => {
+    const trimmed = editNameValue.trim();
+    if (!trimmed) {
+      setFeedbackMsg({ type: "error", text: "Display name cannot be empty." });
+      return;
+    }
+    if (trimmed === displayName) {
+      setIsEditingName(false);
+      return;
+    }
+
+    setSavingName(true);
+    setFeedbackMsg(null);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // 1. Update in profiles table
+        await supabase
+          .from("profiles")
+          .update({ display_name: trimmed })
+          .eq("id", user.id);
+
+        // 2. Update user metadata
+        await supabase.auth.updateUser({
+          data: { display_name: trimmed },
+        });
+
+        setProfile((prev) => (prev ? { ...prev, display_name: trimmed } : null));
+        setIsEditingName(false);
+        setFeedbackMsg({ type: "success", text: "Display name updated successfully!" });
+      }
+    } catch (err: any) {
+      setFeedbackMsg({ type: "error", text: err.message || "Failed to update display name." });
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  // Handle sending password reset email
+  const handleRequestPasswordReset = async () => {
+    if (!email) return;
+    setSendingReset(true);
+    setFeedbackMsg(null);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+      if (error) throw error;
+      setFeedbackMsg({
+        type: "success",
+        text: "Password reset link sent! Please check your email inbox.",
+      });
+    } catch (err: any) {
+      setFeedbackMsg({
+        type: "error",
+        text: err.message || "Failed to send password reset email.",
+      });
+    } finally {
+      setSendingReset(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col px-5 py-5" style={{ minHeight: 740 }}>
+      {/* Header */}
+      <div className="mb-5">
+        <h2
+          className="text-[22px] font-extrabold text-[#1A2816]"
+          style={{ fontFamily: "'Lexend', sans-serif" }}
+        >
+          My Profile
+        </h2>
+        <p className="text-[13px] text-[#6B7C6B]" style={{ fontFamily: "'Nunito', sans-serif" }}>
+          Account details & medical training stats
+        </p>
+      </div>
+
+      {/* Feedback banner */}
+      {feedbackMsg && (
+        <div
+          className={`mb-4 px-4 py-3 rounded-2xl text-[13px] font-semibold flex items-center justify-between transition-all ${feedbackMsg.type === "success"
+            ? "bg-[#F0F8EC] border border-[#D4ECC5] text-[#3D6B2A]"
+            : "bg-[#FFF4F6] border border-[#FCC8D0] text-[#C0384E]"
+            }`}
+          style={{ fontFamily: "'Nunito', sans-serif" }}
+        >
+          <span>{feedbackMsg.text}</span>
+          <button
+            onClick={() => setFeedbackMsg(null)}
+            className="text-current opacity-70 hover:opacity-100 p-1"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
+
+      {/* Hero Avatar Card */}
+      <div className="bg-[#F7FBF5] border border-[#D4ECC5] rounded-3xl p-5 flex flex-col items-center text-center mb-5 shadow-sm">
+        <div className="w-20 h-20 rounded-full bg-[#B3D59F] flex items-center justify-center shadow-md mb-3 border-2 border-white">
+          <span
+            className="text-[#1A3312] font-extrabold text-[24px]"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            {initials}
+          </span>
+        </div>
+        <h3
+          className="text-[19px] font-extrabold text-[#1A2816]"
+          style={{ fontFamily: "'Lexend', sans-serif" }}
+        >
+          {displayName}
+        </h3>
+        <p className="text-[13px] text-[#6B7C6B] font-semibold" style={{ fontFamily: "'Nunito', sans-serif" }}>
+          @{username}
+        </p>
+
+        {/* Stats inside Profile */}
+        <div className="grid grid-cols-2 gap-3 w-full mt-4 pt-4 border-t border-[#E0EBDC]">
+          <div className="bg-white rounded-2xl p-3 border border-[#E8EDE6] text-center">
+            <p className="text-[11px] font-bold text-[#6B7C6B] uppercase tracking-wider" style={{ fontFamily: "'Lexend', sans-serif" }}>
+              Total Points
+            </p>
+            <p className="text-[20px] font-extrabold text-[#3D6B2A] mt-0.5" style={{ fontFamily: "'Lexend', sans-serif" }}>
+              {points.toLocaleString()} <span className="text-[12px]">PTS</span>
+            </p>
+          </div>
+          <div className="bg-white rounded-2xl p-3 border border-[#E8EDE6] text-center">
+            <p className="text-[11px] font-bold text-[#6B7C6B] uppercase tracking-wider" style={{ fontFamily: "'Lexend', sans-serif" }}>
+              Global Rank
+            </p>
+            <p className="text-[20px] font-extrabold text-[#1A2816] mt-0.5" style={{ fontFamily: "'Lexend', sans-serif" }}>
+              {rankDisplay}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Account Info Details */}
+      <div className="space-y-3 mb-5">
+        <p className="text-[13px] font-bold text-[#1A2816] px-1" style={{ fontFamily: "'Lexend', sans-serif" }}>
+          Account Information
+        </p>
+
+        {/* Display Name Item */}
+        <div className="bg-white border border-[#E8EDE6] rounded-2xl p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3 flex-1 min-w-0 mr-2">
+            <div className="w-10 h-10 rounded-xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center text-[#3D6B2A] shrink-0">
+              <User size={18} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] text-[#6B7C6B] font-semibold" style={{ fontFamily: "'Nunito', sans-serif" }}>
+                Display Name
+              </p>
+              {isEditingName ? (
+                <input
+                  type="text"
+                  value={editNameValue}
+                  onChange={(e) => setEditNameValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveDisplayName();
+                    if (e.key === "Escape") {
+                      setEditNameValue(displayName);
+                      setIsEditingName(false);
+                    }
+                  }}
+                  autoFocus
+                  placeholder="Enter display name"
+                  className="w-full px-2.5 py-1 mt-0.5 rounded-lg border border-[#B3D59F] bg-[#F7FBF5] text-[#1A2816] text-[13px] font-bold focus:outline-none focus:ring-1 focus:ring-[#B3D59F]"
+                  style={{ fontFamily: "'Lexend', sans-serif" }}
+                />
+              ) : (
+                <p className="text-[14px] font-extrabold text-[#1A2816] truncate" style={{ fontFamily: "'Lexend', sans-serif" }}>
+                  {displayName}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {isEditingName ? (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={handleSaveDisplayName}
+                disabled={savingName}
+                className="px-3 py-1.5 rounded-xl bg-[#B3D59F] text-[#1A3312] text-[12px] font-extrabold hover:bg-[#9DC885] active:scale-95 transition-all flex items-center gap-1"
+                style={{ fontFamily: "'Lexend', sans-serif" }}
+              >
+                <Check size={13} strokeWidth={3} /> {savingName ? "..." : "Save"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditNameValue(displayName);
+                  setIsEditingName(false);
+                }}
+                className="px-2 py-1.5 text-[#6B7C6B] text-[12px] font-bold hover:text-[#1A2816]"
+                style={{ fontFamily: "'Nunito', sans-serif" }}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setEditNameValue(displayName);
+                setIsEditingName(true);
+              }}
+              className="px-3 py-1.5 rounded-xl bg-[#F0F5EE] text-[#3D6B2A] text-[12px] font-bold hover:bg-[#E2EBE0] active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              <Edit3 size={13} /> Change
+            </button>
+          )}
+        </div>
+
+        {/* Username Item */}
+        <div className="bg-white border border-[#E8EDE6] rounded-2xl p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center text-[#3D6B2A] shrink-0">
+            <span className="font-extrabold text-[15px]">@</span>
+          </div>
+          <div>
+            <p className="text-[11px] text-[#6B7C6B] font-semibold" style={{ fontFamily: "'Nunito', sans-serif" }}>
+              Username
+            </p>
+            <p className="text-[14px] font-extrabold text-[#1A2816]" style={{ fontFamily: "'Lexend', sans-serif" }}>
+              {username}
+            </p>
+          </div>
+        </div>
+
+        {/* Email Item */}
+        <div className="bg-white border border-[#E8EDE6] rounded-2xl p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center text-[#3D6B2A] shrink-0">
+            <Mail size={18} />
+          </div>
+          <div className="overflow-hidden">
+            <p className="text-[11px] text-[#6B7C6B] font-semibold" style={{ fontFamily: "'Nunito', sans-serif" }}>
+              Email Address
+            </p>
+            <p className="text-[14px] font-extrabold text-[#1A2816] truncate" style={{ fontFamily: "'Lexend', sans-serif" }}>
+              {email}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Security Section */}
+      <div className="space-y-3 mb-6">
+        <p className="text-[13px] font-bold text-[#1A2816] px-1" style={{ fontFamily: "'Lexend', sans-serif" }}>
+          Security
+        </p>
+
+        {/* Password Item */}
+        <div className="bg-white border border-[#E8EDE6] rounded-2xl p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center text-[#3D6B2A] shrink-0">
+              <Lock size={18} />
+            </div>
+            <div>
+              <p className="text-[11px] text-[#6B7C6B] font-semibold" style={{ fontFamily: "'Nunito', sans-serif" }}>
+                Password
+              </p>
+              <p className="text-[14px] font-extrabold text-[#1A2816] tracking-widest">
+                ••••••••
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleRequestPasswordReset}
+            disabled={sendingReset}
+            className="px-3 py-1.5 rounded-xl bg-[#F0F5EE] text-[#3D6B2A] text-[12px] font-bold hover:bg-[#E2EBE0] active:scale-95 transition-all flex items-center gap-1.5 shrink-0 disabled:opacity-60"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            <Key size={13} /> {sendingReset ? "Sending..." : "Change"}
+          </button>
+        </div>
+      </div>
+
+      {/* Back / Done button */}
+      <button
+        onClick={onBack}
+        className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[16px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-auto"
+        style={{ fontFamily: "'Lexend', sans-serif" }}
+      >
+        <ArrowLeft size={18} strokeWidth={2.5} /> Back to Dashboard
+      </button>
     </div>
   );
 }
@@ -1073,9 +1550,171 @@ function LobbyScreen() {
   );
 }
 
+// ─── Reset Password Modal ─────────────────────────────────────────────
+function ResetPasswordModal({
+  isOpen,
+  onClose,
+  onSuccess,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleUpdate = async () => {
+    setErrorMsg("");
+    if (!newPassword) {
+      setErrorMsg("Please enter a new password.");
+      return;
+    }
+    if (newPassword.length < 6) {
+      setErrorMsg("Password must be at least 6 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setErrorMsg("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setIsSuccess(true);
+      setTimeout(() => {
+        setIsSuccess(false);
+        onSuccess();
+        onClose();
+      }, 1500);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to update password.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div
+        className="w-full max-w-[350px] bg-white rounded-3xl p-6 shadow-2xl border border-[#E8EDE6] relative"
+        style={{ fontFamily: "'Nunito', sans-serif" }}
+      >
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-[#A0B09A] hover:text-[#1A2816] transition-colors p-1.5 rounded-full hover:bg-[#F0F5EE]"
+          aria-label="Close"
+        >
+          <X size={18} />
+        </button>
+
+        {isSuccess ? (
+          <div className="py-6 text-center flex flex-col items-center">
+            <div className="w-14 h-14 rounded-2xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center mb-4">
+              <CheckCircle size={28} className="text-[#3D6B2A]" />
+            </div>
+            <h3
+              className="text-[20px] font-extrabold text-[#1A2816]"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              Password Updated!
+            </h3>
+            <p className="text-[13px] text-[#6B7C6B] mt-1">
+              Your password has been changed successfully.
+            </p>
+          </div>
+        ) : (
+          <div>
+            <div className="w-12 h-12 rounded-2xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center mb-4">
+              <Lock size={22} className="text-[#3D6B2A]" />
+            </div>
+
+            <h3
+              className="text-[20px] font-extrabold text-[#1A2816]"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              Set New Password
+            </h3>
+            <p className="text-[13px] text-[#6B7C6B] mt-0.5 mb-5">
+              Enter and confirm your new account password.
+            </p>
+
+            <div className="space-y-3.5">
+              <div>
+                <label
+                  className="text-[12px] font-bold text-[#1A2816] mb-1 block"
+                  style={{ fontFamily: "'Lexend', sans-serif" }}
+                >
+                  New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="At least 6 characters"
+                    className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#A0B09A] focus:outline-none focus:border-[#B3D59F] text-[13px]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A0B09A] hover:text-[#3D6B2A]"
+                  >
+                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label
+                  className="text-[12px] font-bold text-[#1A2816] mb-1 block"
+                  style={{ fontFamily: "'Lexend', sans-serif" }}
+                >
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#A0B09A] focus:outline-none focus:border-[#B3D59F] text-[13px]"
+                />
+              </div>
+            </div>
+
+            {errorMsg && (
+              <div className="mt-3 bg-[#FFF4F6] border border-[#FCC8D0] text-[#C0384E] text-[12px] px-3.5 py-2.5 rounded-xl font-semibold">
+                {errorMsg}
+              </div>
+            )}
+
+            <button
+              onClick={handleUpdate}
+              disabled={loading}
+              className="w-full py-3.5 rounded-xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[15px] shadow-sm hover:bg-[#9DC885] active:scale-[0.98] transition-all mt-5 disabled:opacity-60"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              {loading ? "Updating..." : "Update Password"}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── App shell ───────────────────────────────────────────────────────
 export default function App() {
   const [historyStack, setHistoryStack] = useState<Screen[]>(["landing"]);
+  const [showResetModal, setShowResetModal] = useState(false);
   const current = historyStack[historyStack.length - 1];
 
   useEffect(() => {
@@ -1091,7 +1730,22 @@ export default function App() {
     };
 
     window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
+
+    // Listen for password recovery from Supabase email link
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setShowResetModal(true);
+      }
+    });
+
+    if (window.location.hash.includes("type=recovery")) {
+      setShowResetModal(true);
+    }
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const navigate = (s: Screen) => {
@@ -1155,12 +1809,27 @@ export default function App() {
             {current === "cpr" && <CPRScreen onNext={() => navigate("onboarding")} />}
             {current === "onboarding" && <OnboardingScreen onNext={() => navigate("auth")} />}
             {current === "auth" && <AuthScreen onNext={() => navigate("dashboard")} />}
-            {current === "dashboard" && <DashboardScreen onScan={() => navigate("lobby")} />}
+            {current === "dashboard" && (
+              <DashboardScreen
+                onScan={() => navigate("lobby")}
+                onOpenProfile={() => navigate("profile")}
+              />
+            )}
             {current === "lobby" && <LobbyScreen />}
+            {current === "profile" && <ProfileScreen onBack={goBack} />}
           </div>
 
         </div>
       </div>
+
+      {/* Password Reset Modal */}
+      <ResetPasswordModal
+        isOpen={showResetModal}
+        onClose={() => setShowResetModal(false)}
+        onSuccess={() => {
+          navigate("auth");
+        }}
+      />
     </>
   );
 }
