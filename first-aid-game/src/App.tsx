@@ -6,6 +6,7 @@ import './App.css';
 import { supabase } from './lib/supabaseClient';
 import Webcam from 'react-webcam';
 import jsQR from 'jsqr';
+import QRCode from 'qrcode';
 import '@google/model-viewer';
 
 declare global {
@@ -35,12 +36,52 @@ import {
   Zap, Users, Trophy, BookOpen, Lock,
   Eye, EyeOff, CheckCircle, Wifi, Camera,
   ArrowRight, Send, Clock, Star, Apple, ArrowLeft,
-  Play, Pause, X, User, Mail, Edit3, Key, LogOut, Check
+  Play, Pause, X, User, Mail, Edit3, Key, LogOut, Check,
+  Plus, Crown, Home, Boxes, Sparkles, Activity, Layers, Video
 } from "lucide-react";
+import { storage, STORAGE_KEYS } from "./lib/storage";
 
-type Screen = "landing" | "cpr" | "onboarding" | "auth" | "dashboard" | "lobby" | "profile";
-const SCREENS: Screen[] = ["landing", "cpr", "onboarding", "auth", "dashboard", "lobby", "profile"];
-const LABELS = ["Landing", "CPR 3D", "Onboard", "Sign In", "Dashboard", "Lobby", "Profile"];
+type Screen =
+  | "landing"
+  | "cpr"
+  | "onboarding"
+  | "auth"
+  | "dashboard"
+  | "lobby"
+  | "profile"
+  | "create-lobby"
+  | "quiz"
+  | "learn"
+  | "ar-hub"
+  | "ar-try";
+const SCREENS: Screen[] = [
+  "landing",
+  "cpr",
+  "onboarding",
+  "auth",
+  "dashboard",
+  "lobby",
+  "profile",
+  "create-lobby",
+  "quiz",
+  "learn",
+  "ar-hub",
+  "ar-try",
+];
+const LABELS = [
+  "Landing",
+  "CPR 3D",
+  "Onboard",
+  "Sign In",
+  "Dashboard",
+  "Lobby",
+  "Profile",
+  "Create Lobby",
+  "Quiz",
+  "Learn",
+  "AR Practice",
+  "AI Vision",
+];
 
 // Simple SVG QR code pattern
 function QRCodeSVG({ size = 120 }: { size?: number }) {
@@ -758,15 +799,17 @@ function AuthScreen({ onNext }: { onNext: () => void }) {
 function DashboardScreen({
   onScan,
   onOpenProfile,
+  onCreateLobby,
 }: {
   onScan: () => void;
   onOpenProfile: () => void;
+  onCreateLobby: () => void;
 }) {
   const [profile, setProfile] = useState<{
     display_name?: string;
     points?: number;
     ranking?: number;
-  } | null>(null);
+  } | null>(() => storage.get(STORAGE_KEYS.PROFILE, null));
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -781,12 +824,15 @@ function DashboardScreen({
 
           if (data && !error) {
             setProfile(data);
+            storage.set(STORAGE_KEYS.PROFILE, data);
           } else {
-            setProfile({
+            const fallbackProfile = {
               display_name: user.user_metadata?.display_name || user.email?.split("@")[0] || "User",
               points: 0,
               ranking: 0,
-            });
+            };
+            setProfile(fallbackProfile);
+            storage.set(STORAGE_KEYS.PROFILE, fallbackProfile);
           }
         }
       } catch (err) {
@@ -966,6 +1012,33 @@ function DashboardScreen({
         </div>
       </button>
 
+      {/* Create Lobby CTA */}
+      <button
+        onClick={onCreateLobby}
+        className="w-full bg-white border border-[#D8E8D0] rounded-2xl p-4 flex items-center justify-between hover:bg-[#F7FBF5] active:scale-[0.98] transition-all shadow-sm mb-4"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center text-[#3D6B2A]">
+            <Plus size={22} strokeWidth={2.5} />
+          </div>
+          <div className="text-left">
+            <p
+              className="font-extrabold text-[#1A2816] text-[15px]"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              Create a Challenge Lobby
+            </p>
+            <p
+              className="text-[12px] text-[#6B7C6B]"
+              style={{ fontFamily: "'Nunito', sans-serif" }}
+            >
+              Host a live multiplayer session for students
+            </p>
+          </div>
+        </div>
+        <ChevronRight size={18} className="text-[#A0B09A]" />
+      </button>
+
       {/* Recent activity */}
       <p
         className="text-[14px] font-bold text-[#1A2816] mb-2.5"
@@ -1013,14 +1086,20 @@ function DashboardScreen({
 }
 
 // ─── Screen: Profile ─────────────────────────────────────────────────
-function ProfileScreen({ onBack }: { onBack: () => void }) {
+function ProfileScreen({
+  onBack,
+  onSignOut,
+}: {
+  onBack: () => void;
+  onSignOut?: () => void;
+}) {
   const [profile, setProfile] = useState<{
     display_name?: string;
     username?: string;
     email?: string;
     points?: number;
     ranking?: number;
-  } | null>(null);
+  } | null>(() => storage.get(STORAGE_KEYS.PROFILE, null));
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [editNameValue, setEditNameValue] = useState("");
@@ -1041,13 +1120,15 @@ function ProfileScreen({ onBack }: { onBack: () => void }) {
             .single();
 
           const loadedName = data?.display_name || user.user_metadata?.display_name || "Alex Chen";
-          setProfile({
+          const newProfile = {
             display_name: loadedName,
             username: user.email?.split("@")[0] || "alexchen",
             email: user.email || "alex.chen@example.com",
             points: data?.points ?? 0,
             ranking: data?.ranking ?? 0,
-          });
+          };
+          setProfile(newProfile);
+          storage.set(STORAGE_KEYS.PROFILE, newProfile);
           setEditNameValue(loadedName);
         }
       } catch (err) {
@@ -1099,7 +1180,9 @@ function ProfileScreen({ onBack }: { onBack: () => void }) {
           data: { display_name: trimmed },
         });
 
-        setProfile((prev) => (prev ? { ...prev, display_name: trimmed } : null));
+        const updated = profile ? { ...profile, display_name: trimmed } : null;
+        setProfile(updated);
+        if (updated) storage.set(STORAGE_KEYS.PROFILE, updated);
         setIsEditingName(false);
         setFeedbackMsg({ type: "success", text: "Display name updated successfully!" });
       }
@@ -1352,6 +1435,20 @@ function ProfileScreen({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
+      {/* Sign Out Button */}
+      <button
+        type="button"
+        onClick={async () => {
+          await supabase.auth.signOut();
+          storage.clearUserSession();
+          onSignOut?.();
+        }}
+        className="w-full py-3.5 rounded-2xl bg-white border border-[#FAD2D2] text-[#D93838] font-extrabold text-[15px] hover:bg-[#FFF5F5] active:scale-[0.98] transition-all flex items-center justify-center gap-2 mb-3 shadow-sm"
+        style={{ fontFamily: "'Lexend', sans-serif" }}
+      >
+        <LogOut size={18} strokeWidth={2.2} /> Sign Out of goMed
+      </button>
+
       {/* Back / Done button */}
       <button
         onClick={onBack}
@@ -1364,14 +1461,721 @@ function ProfileScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
-// ─── Screen 5: Lobby ─────────────────────────────────────────────────
-function LobbyScreen() {
-  const [code, setCode] = useState("");
-  const participants = ["Alex C.", "Maria L.", "James K."];
-  const webcamRef = useRef<Webcam>(null);
+// ─── Modal: Lobby QR Code ─────────────────────────────────────────────
+function LobbyQRCodeModal({
+  isOpen,
+  lobby,
+  onClose,
+}: {
+  isOpen: boolean;
+  lobby: { code: string; school: string } | null;
+  onClose: () => void;
+}) {
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
+  useEffect(() => {
+    if (lobby?.code) {
+      QRCode.toDataURL(lobby.code, {
+        width: 320,
+        margin: 2,
+        color: {
+          dark: "#1A2816",
+          light: "#FFFFFF",
+        },
+      })
+        .then((url) => setQrDataUrl(url))
+        .catch((err) => console.error("QR generation error:", err));
+    }
+  }, [lobby?.code]);
+
+  if (!isOpen || !lobby) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div
+        className="w-full max-w-[350px] bg-white rounded-3xl p-6 shadow-2xl border border-[#E8EDE6] text-center relative"
+        style={{ fontFamily: "'Nunito', sans-serif" }}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-[#A0B09A] hover:text-[#1A2816] p-1.5 rounded-full hover:bg-[#F0F5EE]"
+          aria-label="Close QR Code"
+        >
+          <X size={18} />
+        </button>
+
+        <span
+          className="text-[11px] font-bold text-[#3D6B2A] uppercase tracking-wider block mb-1"
+          style={{ fontFamily: "'Lexend', sans-serif" }}
+        >
+          Join Challenge Session
+        </span>
+        <h3
+          className="text-[18px] font-extrabold text-[#1A2816] mb-1"
+          style={{ fontFamily: "'Lexend', sans-serif" }}
+        >
+          {lobby.school}
+        </h3>
+        <p className="text-[12px] text-[#6B7C6B] mb-4">
+          Scan this QR code with your camera or enter room code below
+        </p>
+
+        {/* Rendered QR Code */}
+        <div className="bg-[#F7FBF5] border border-[#D4ECC5] p-4 rounded-2xl inline-block mb-4 shadow-sm">
+          {qrDataUrl ? (
+            <img src={qrDataUrl} alt="Lobby QR Code" className="w-52 h-52 mx-auto rounded-lg" />
+          ) : (
+            <div className="w-52 h-52 flex items-center justify-center text-[#6B7C6B]">
+              Generating QR...
+            </div>
+          )}
+        </div>
+
+        {/* Code badge */}
+        <div className="bg-[#F0F8EC] border border-[#D4ECC5] py-2 px-4 rounded-xl mb-5 inline-block">
+          <span className="text-[12px] text-[#6B7C6B] font-bold mr-2">ROOM CODE:</span>
+          <span
+            className="text-[20px] font-extrabold text-[#1A3312] font-mono tracking-widest"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            {lobby.code}
+          </span>
+        </div>
+
+        <button
+          onClick={onClose}
+          className="w-full py-3.5 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[15px] shadow-sm hover:bg-[#9DC885] active:scale-[0.98] transition-all"
+          style={{ fontFamily: "'Lexend', sans-serif" }}
+        >
+          Close & Open Lobby Room
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Screen: Create Lobby ─────────────────────────────────────────────
+function CreateLobbyScreen({
+  onLobbyCreated,
+  onBack,
+}: {
+  onLobbyCreated: (lobby: any) => void;
+  onBack: () => void;
+}) {
+  const [school, setSchool] = useState("");
+  const [maxPlayers, setMaxPlayers] = useState(8);
+  const [category, setCategory] = useState("cpr");
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const handleCreate = async () => {
+    setErrorMsg("");
+    if (!school.trim()) {
+      setErrorMsg("Please enter your school or organization name.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error("You must be logged in to host a lobby.");
+      }
+
+      // Generate a random 6-char code: MED + 3 digits (e.g. MED842)
+      const randomDigits = Math.floor(100 + Math.random() * 900);
+      const generatedCode = `MED${randomDigits}`;
+
+      // 1. Insert into lobbies table
+      const { data: newLobby, error: insertError } = await supabase
+        .from("lobbies")
+        .insert({
+          code: generatedCode,
+          school: school.trim(),
+          host_id: user.id,
+          status: "waiting",
+          max_players: maxPlayers,
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      // 2. Link relevant questions to this lobby in lobby_questions
+      const { data: qData } = await supabase
+        .from("questions")
+        .select("id")
+        .eq("category", category)
+        .limit(10);
+
+      if (qData && qData.length > 0) {
+        const links = qData.map((q: any, idx: number) => ({
+          lobby_id: newLobby.id,
+          question_id: q.id,
+          order_index: idx + 1,
+        }));
+        await supabase.from("lobby_questions").insert(links);
+      }
+
+      // 3. Ensure host profile exists & add host to participants
+      const hostDisplayName =
+        user.user_metadata?.display_name ||
+        user.email?.split("@")[0] ||
+        "Host";
+
+      await supabase.from("profiles").upsert(
+        {
+          id: user.id,
+          display_name: hostDisplayName,
+        },
+        { onConflict: "id" }
+      );
+
+      await supabase.from("lobby_participants").upsert(
+        {
+          lobby_id: newLobby.id,
+          user_id: user.id,
+          current_score: 0,
+        },
+        { onConflict: "lobby_id,user_id" }
+      );
+
+      onLobbyCreated({ ...newLobby, isNewlyCreated: true });
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to create lobby.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col px-6 py-6" style={{ minHeight: 740 }}>
+      {/* Header */}
+      <div className="mb-6">
+        <h2
+          className="text-[22px] font-extrabold text-[#1A2816]"
+          style={{ fontFamily: "'Lexend', sans-serif" }}
+        >
+          Host a Challenge
+        </h2>
+        <p
+          className="text-[13px] text-[#6B7C6B] mt-0.5"
+          style={{ fontFamily: "'Nunito', sans-serif" }}
+        >
+          Configure room settings and generate invite QR code
+        </p>
+      </div>
+
+      {errorMsg && (
+        <div
+          className="mb-4 bg-[#FFF4F6] border border-[#FCC8D0] text-[#C0384E] text-[13px] px-4 py-3 rounded-2xl font-semibold flex items-center justify-between"
+          style={{ fontFamily: "'Nunito', sans-serif" }}
+        >
+          <span>{errorMsg}</span>
+          <button onClick={() => setErrorMsg("")} className="p-1 opacity-70 hover:opacity-100">
+            <X size={15} />
+          </button>
+        </div>
+      )}
+
+      <div className="space-y-4 flex-1">
+        {/* School / Organization input */}
+        <div>
+          <label
+            className="text-[13px] font-bold text-[#1A2816] mb-1.5 block"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            School or Organization
+          </label>
+          <input
+            type="text"
+            value={school}
+            onChange={(e) => setSchool(e.target.value)}
+            placeholder="e.g. Colegiul National Sfantul Sava"
+            className="w-full px-4 py-3.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#A0B09A] focus:outline-none focus:border-[#B3D59F] text-[14px]"
+            style={{ fontFamily: "'Nunito', sans-serif" }}
+          />
+        </div>
+
+        {/* Max players selection */}
+        <div>
+          <label
+            className="text-[13px] font-bold text-[#1A2816] mb-1.5 block"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            Maximum Players
+          </label>
+          <div className="grid grid-cols-4 gap-2">
+            {[4, 8, 12, 24].map((num) => (
+              <button
+                key={num}
+                type="button"
+                onClick={() => setMaxPlayers(num)}
+                className={`py-2.5 rounded-xl text-[13px] font-bold border transition-all ${
+                  maxPlayers === num
+                    ? "bg-[#B3D59F] text-[#1A3312] border-[#9DC885] shadow-sm"
+                    : "bg-[#F7FBF5] text-[#6B7C6B] border-[#D8E8D0] hover:bg-white"
+                }`}
+                style={{ fontFamily: "'Lexend', sans-serif" }}
+              >
+                {num} max
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Challenge Category */}
+        <div>
+          <label
+            className="text-[13px] font-bold text-[#1A2816] mb-1.5 block"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            Challenge Module
+          </label>
+          <div className="space-y-2">
+            {[
+              { id: "cpr", title: "CPR & Cardiac Arrest", desc: "Chest compressions, airway & rhythm" },
+              { id: "burns", title: "Burns & Wound Care", desc: "Bandaging, triage & thermal injuries" },
+            ].map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setCategory(cat.id)}
+                className={`w-full p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all ${
+                  category === cat.id
+                    ? "bg-[#F0F8EC] border-[#B3D59F] ring-1 ring-[#B3D59F]"
+                    : "bg-white border-[#E8EDE6] hover:bg-[#F7FBF5]"
+                }`}
+              >
+                <div>
+                  <p
+                    className="text-[14px] font-extrabold text-[#1A2816]"
+                    style={{ fontFamily: "'Lexend', sans-serif" }}
+                  >
+                    {cat.title}
+                  </p>
+                  <p
+                    className="text-[12px] text-[#6B7C6B]"
+                    style={{ fontFamily: "'Nunito', sans-serif" }}
+                  >
+                    {cat.desc}
+                  </p>
+                </div>
+                <div
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    category === cat.id ? "border-[#3D6B2A] bg-[#3D6B2A]" : "border-[#D8E8D0]"
+                  }`}
+                >
+                  {category === cat.id && <Check size={12} className="text-white" strokeWidth={3} />}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* CTA Buttons */}
+      <div className="pt-4 space-y-2">
+        <button
+          onClick={handleCreate}
+          disabled={loading}
+          className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[16px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+          style={{ fontFamily: "'Lexend', sans-serif" }}
+        >
+          {loading ? "Creating Lobby..." : "Create Lobby & Show QR Code"}
+        </button>
+
+        <button
+          onClick={onBack}
+          type="button"
+          className="w-full py-3 text-[#6B7C6B] font-bold text-[14px] hover:text-[#1A2816]"
+          style={{ fontFamily: "'Nunito', sans-serif" }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Screen 5: Lobby ─────────────────────────────────────────────────
+function LobbyScreen({
+  initialLobby,
+  _onLeave,
+  onStartGame,
+  onLobbyJoined,
+  onKicked,
+}: {
+  initialLobby?: any;
+  _onLeave?: () => void;
+  onStartGame?: (lobby: any) => void;
+  onLobbyJoined?: (lobby: any) => void;
+  onKicked?: (lobbyId?: string) => void;
+}) {
+  const [code, setCode] = useState(initialLobby?.code || "");
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [lobby, setLobby] = useState<any>(initialLobby || null);
+  const [participants, setParticipants] = useState<
+    { userId: string; name: string; isCurrentUser: boolean; isHost: boolean }[]
+  >([]);
+  const [showQRModal, setShowQRModal] = useState(Boolean(initialLobby?.isNewlyCreated));
+  const [startingLobby, setStartingLobby] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+  // Temporary 5-second kick cooldown map to prevent initial flicker without blocking re-joining
+  const kickedUserCooldownsRef = useRef<Map<string, number>>(new Map());
+
+  const webcamRef = useRef<Webcam>(null);
+  const lastScannedRef = useRef<string>("");
+
+  // Get current user ID
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setCurrentUserId(user.id);
+    });
+  }, []);
+
+  const isHost = Boolean(currentUserId && lobby && lobby.host_id === currentUserId);
+
+  // Helper to extract clean lobby code from text or full URL
+  const extractCode = (raw: string) => {
+    try {
+      if (raw.includes("://")) {
+        const url = new URL(raw);
+        const param = url.searchParams.get("code");
+        if (param) return param.trim().toUpperCase();
+      }
+      return raw.trim().toUpperCase();
+    } catch {
+      return raw.trim().toUpperCase();
+    }
+  };
+
+  const fetchParticipants = useCallback(
+    async (lobbyId: string, currentLobbyHostId?: string) => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const currentUserName =
+          user?.user_metadata?.display_name ||
+          user?.email?.split("@")[0] ||
+          "User";
+
+        const { data, error } = await supabase
+          .from("lobby_participants")
+          .select("user_id, profiles(display_name)")
+          .eq("lobby_id", lobbyId);
+
+        const effectiveHostId = currentLobbyHostId || lobby?.host_id;
+
+        // If regular user joined previously but was deleted from participants by host, trigger onKicked
+        if (data && !error && user && user.id !== effectiveHostId) {
+          const userStillInLobby = data.some((p: any) => p.user_id === user.id);
+          if (!userStillInLobby && participants.length > 0) {
+            onKicked?.(lobbyId);
+            return;
+          }
+        }
+
+        const list: {
+          userId: string;
+          name: string;
+          isCurrentUser: boolean;
+          isHost: boolean;
+        }[] = [];
+
+        if (data && !error && data.length > 0) {
+          const now = Date.now();
+          data
+            // Filter out only if user was kicked in the last 5 seconds (allows re-join after 5s or on re-scan)
+            .filter((p: any) => (kickedUserCooldownsRef.current.get(p.user_id) ?? 0) <= now)
+            .forEach((p: any) => {
+              const isCurrent = Boolean(user && p.user_id === user.id);
+              const isLobbyHost = Boolean(effectiveHostId && p.user_id === effectiveHostId);
+              const name =
+                p.profiles?.display_name || (isCurrent ? currentUserName : "Participant");
+              list.push({
+                userId: p.user_id,
+                name,
+                isCurrentUser: isCurrent,
+                isHost: isLobbyHost,
+              });
+            });
+
+          // Only ensure host is present if host is viewing and not in participant rows
+          if (user && effectiveHostId === user.id && !list.some((item) => item.userId === user.id)) {
+            list.unshift({
+              userId: user.id,
+              name: currentUserName,
+              isCurrentUser: true,
+              isHost: true,
+            });
+          }
+        } else if (user && effectiveHostId === user.id) {
+          list.push({
+            userId: user.id,
+            name: currentUserName,
+            isCurrentUser: true,
+            isHost: true,
+          });
+        }
+
+        setParticipants(list);
+      } catch (err) {
+        console.error("Error fetching participants:", err);
+      }
+    },
+    [lobby?.host_id, participants.length, onKicked]
+  );
+
+  const verifyAndJoinLobby = useCallback(
+    async (rawCode: string) => {
+      const cleanCode = extractCode(rawCode);
+      if (!cleanCode) {
+        setErrorMsg("Please enter a valid lobby code.");
+        return;
+      }
+
+      setLoading(true);
+      setErrorMsg("");
+
+      try {
+        // 1. Check if lobby code exists in database
+        const { data: lobbyData, error: lobbyError } = await supabase
+          .from("lobbies")
+          .select("id, code, school, status, max_players, host_id")
+          .ilike("code", cleanCode)
+          .single();
+
+        if (lobbyError || !lobbyData) {
+          setErrorMsg(`Lobby "${cleanCode}" not found. Please check code.`);
+          setLobby(null);
+          return;
+        }
+
+        setLobby(lobbyData);
+        setCode(lobbyData.code);
+        onLobbyJoined?.(lobbyData);
+
+        // 2. Add logged-in user to lobby_participants
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          const fallbackName =
+            user.user_metadata?.display_name ||
+            user.email?.split("@")[0] ||
+            "User";
+
+          await supabase.from("profiles").upsert(
+            {
+              id: user.id,
+              display_name: fallbackName,
+            },
+            { onConflict: "id" }
+          );
+
+          await supabase.from("lobby_participants").upsert(
+            {
+              lobby_id: lobbyData.id,
+              user_id: user.id,
+              current_score: 0,
+            },
+            { onConflict: "lobby_id,user_id" }
+          );
+        }
+
+        // 3. Fetch participants list
+        await fetchParticipants(lobbyData.id, lobbyData.host_id);
+
+        // 4. Broadcast join event to host and peers
+        roomChannelRef.current?.send({
+          type: "broadcast",
+          event: "participant_joined",
+          payload: { userId: user?.id, code: lobbyData.code },
+        });
+      } catch (err: any) {
+        setErrorMsg(err.message || "Failed to join lobby.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [fetchParticipants, onLobbyJoined]
+  );
+
+  const roomChannelRef = useRef<any>(null);
+
+  // If initial lobby provided, fetch participants on mount
+  useEffect(() => {
+    if (initialLobby?.id) {
+      fetchParticipants(initialLobby.id, initialLobby.host_id);
+    }
+  }, [initialLobby, fetchParticipants]);
+
+  // Robust Dual-Sync: Supabase Realtime (Postgres Changes + Direct Broadcast) + Periodic Heartbeat
+  useEffect(() => {
+    if (!lobby?.id) return;
+
+    // 1. Unified Real-Time Channel
+    const channel = supabase.channel(`lobby-room-${lobby.id}`, {
+      config: {
+        broadcast: { self: true },
+      },
+    });
+    roomChannelRef.current = channel;
+
+    channel
+      // A. Listen to Postgres table changes for participants
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "lobby_participants",
+          filter: `lobby_id=eq.${lobby.id}`,
+        },
+        () => {
+          fetchParticipants(lobby.id);
+        }
+      )
+      // B. Listen to Postgres table changes for lobby status
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "lobbies",
+          filter: `id=eq.${lobby.id}`,
+        },
+        (payload: any) => {
+          if (payload.new?.status) {
+            setLobby((prev: any) => ({ ...prev, status: payload.new.status }));
+          }
+        }
+      )
+      // C. Instant Peer-to-Peer Broadcast Events (0ms network latency)
+      .on("broadcast", { event: "participant_joined" }, (payload: any) => {
+        if (payload?.payload?.userId) {
+          // Immediately unblock user if they re-scan / re-join
+          kickedUserCooldownsRef.current.delete(payload.payload.userId);
+        }
+        fetchParticipants(lobby.id);
+      })
+      .on("broadcast", { event: "participant_kicked" }, (payload: any) => {
+        if (payload?.payload?.targetUserId && payload.payload.targetUserId === currentUserId) {
+          onKicked?.(lobby.id);
+        } else {
+          fetchParticipants(lobby.id);
+        }
+      })
+      .on("broadcast", { event: "game_started" }, () => {
+        setLobby((prev: any) => ({ ...prev, status: "active" }));
+      })
+      .subscribe();
+
+    // 2. Heartbeat Sync Polling Fallback (Runs every 2s to guarantee mobile sync)
+    const heartbeatTimer = setInterval(async () => {
+      try {
+        const { data: latestLobby } = await supabase
+          .from("lobbies")
+          .select("status")
+          .eq("id", lobby.id)
+          .single();
+
+        if (latestLobby?.status && latestLobby.status !== lobby.status) {
+          setLobby((prev: any) => ({ ...prev, status: latestLobby.status }));
+        }
+
+        // Periodically refresh participant count
+        fetchParticipants(lobby.id);
+      } catch (e) {
+        console.warn("[LobbySync] Heartbeat poll error:", e);
+      }
+    }, 2000);
+
+    return () => {
+      clearInterval(heartbeatTimer);
+      supabase.removeChannel(channel);
+      roomChannelRef.current = null;
+    };
+  }, [lobby?.id, lobby?.status, fetchParticipants, currentUserId, onKicked]);
+
+  // Trigger game start when lobby status becomes active
+  useEffect(() => {
+    if (lobby?.status === "active") {
+      const timer = setTimeout(() => {
+        onStartGame?.(lobby);
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [lobby?.status, lobby, onStartGame]);
+
+  // Kick participant handler (Host only)
+  const handleKickParticipant = async (targetUserId: string) => {
+    if (!lobby || !isHost) return;
+    try {
+      // 1. Add 5-second cooldown to avoid instant flicker
+      kickedUserCooldownsRef.current.set(targetUserId, Date.now() + 5000);
+
+      // 2. Immediately remove from local state
+      setParticipants((prev) => prev.filter((p) => p.userId !== targetUserId));
+
+      // 3. Delete from database
+      await supabase
+        .from("lobby_participants")
+        .delete()
+        .eq("lobby_id", lobby.id)
+        .eq("user_id", targetUserId);
+
+      // 4. Broadcast kick event to peer
+      roomChannelRef.current?.send({
+        type: "broadcast",
+        event: "participant_kicked",
+        payload: { targetUserId },
+      });
+
+      // 5. Re-fetch participants to verify
+      await fetchParticipants(lobby.id);
+    } catch (err) {
+      console.error("Error kicking participant:", err);
+    }
+  };
+
+  // Start lobby challenge handler (Host only)
+  const handleStartLobby = async () => {
+    if (!lobby || !isHost) return;
+    setStartingLobby(true);
+    try {
+      const { error } = await supabase
+        .from("lobbies")
+        .update({ status: "active" })
+        .eq("id", lobby.id);
+
+      if (error) throw error;
+
+      // Broadcast game started event immediately across the room
+      roomChannelRef.current?.send({
+        type: "broadcast",
+        event: "game_started",
+        payload: { lobbyId: lobby.id },
+      });
+
+      setLobby((prev: any) => ({ ...prev, status: "active" }));
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to start lobby.");
+    } finally {
+      setStartingLobby(false);
+    }
+  };
+
+  // Webcam QR scanner loop
   const capture = useCallback(() => {
-    if (webcamRef.current) {
+    if (webcamRef.current && !loading && !lobby) {
       const imageSrc = webcamRef.current.getScreenshot();
       if (imageSrc) {
         const image = new Image();
@@ -1385,47 +2189,1215 @@ function LobbyScreen() {
             ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const qrCodeData = jsQR(imageData.data, imageData.width, imageData.height);
-            if (qrCodeData) {
-              setCode(qrCodeData.data);
+            if (qrCodeData && qrCodeData.data) {
+              const scanned = qrCodeData.data.trim();
+              if (scanned && scanned !== lastScannedRef.current) {
+                lastScannedRef.current = scanned;
+                verifyAndJoinLobby(scanned);
+              }
             }
           }
         };
       }
     }
-  }, [webcamRef]);
+  }, [webcamRef, loading, lobby, verifyAndJoinLobby]);
 
   useEffect(() => {
-    const interval = setInterval(capture, 500); // scan every 500ms
+    const interval = setInterval(capture, 500);
     return () => clearInterval(interval);
   }, [capture]);
 
   return (
     <div className="flex flex-col px-5 py-5" style={{ minHeight: 740 }}>
+      {/* Top Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2
+            className="text-[22px] font-extrabold text-[#1A2816]"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            Challenge Lobby
+          </h2>
+          <p
+            className="text-[13px] text-[#6B7C6B] mt-0.5"
+            style={{ fontFamily: "'Nunito', sans-serif" }}
+          >
+            {lobby ? "Waiting room & participants" : "Scan QR or enter code to join live session"}
+          </p>
+        </div>
+
+        {lobby && (
+          <button
+            onClick={() => setShowQRModal(true)}
+            className="flex items-center gap-1.5 bg-[#F0F8EC] border border-[#D4ECC5] text-[#3D6B2A] px-3 py-1.5 rounded-xl text-[12px] font-extrabold shadow-sm hover:bg-[#E2F0DC] active:scale-95 transition-all"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            <QrCode size={16} /> QR Code
+          </button>
+        )}
+      </div>
+
+      {/* Feedback / Error banner */}
+      {errorMsg && (
+        <div
+          className="mb-4 bg-[#FFF4F6] border border-[#FCC8D0] text-[#C0384E] text-[13px] px-4 py-3 rounded-2xl font-semibold flex items-center justify-between"
+          style={{ fontFamily: "'Nunito', sans-serif" }}
+        >
+          <span>{errorMsg}</span>
+          <button
+            onClick={() => setErrorMsg("")}
+            className="text-current opacity-70 hover:opacity-100 p-1"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
+
+      {/* Lobby Active Info Card */}
+      {lobby && (
+        <div
+          className="mb-4 bg-[#F0F8EC] border border-[#D4ECC5] text-[#1A3312] p-4 rounded-2xl flex items-center justify-between shadow-sm"
+          style={{ fontFamily: "'Nunito', sans-serif" }}
+        >
+          <div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <span
+                className="text-[11px] font-bold text-[#3D6B2A] uppercase tracking-wider block"
+                style={{ fontFamily: "'Lexend', sans-serif" }}
+              >
+                Room Code · {lobby.code}
+              </span>
+              {isHost && (
+                <span
+                  className="bg-[#1A3312] text-white text-[9px] font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1 uppercase tracking-wider"
+                  style={{ fontFamily: "'Lexend', sans-serif" }}
+                >
+                  <Crown size={10} /> You are Host
+                </span>
+              )}
+            </div>
+            <p
+              className="text-[16px] font-extrabold text-[#1A2816]"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              {lobby.school}
+            </p>
+          </div>
+          <span
+            className={`text-[11px] font-bold px-3 py-1 rounded-full uppercase ${
+              lobby.status === "active"
+                ? "bg-[#3D6B2A] text-white animate-pulse"
+                : "bg-[#B3D59F] text-[#1A3312]"
+            }`}
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            {lobby.status}
+          </span>
+        </div>
+      )}
+
+      {/* Camera viewfinder (hidden once joined) */}
+      {!lobby && (
+        <div
+          className="bg-[#1A2816] rounded-3xl overflow-hidden mb-4 relative mx-auto w-full"
+          style={{ aspectRatio: "1/1", maxWidth: 300 }}
+        >
+          <Webcam
+            audio={false}
+            ref={webcamRef}
+            screenshotFormat="image/jpeg"
+            videoConstraints={{ facingMode: "environment" }}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+
+          {/* Corner brackets */}
+          {([
+            ["top-4 left-4", "rounded-tl-xl border-t-2 border-l-2 border-r-0 border-b-0"],
+            ["top-4 right-4", "rounded-tr-xl border-t-2 border-r-2 border-l-0 border-b-0"],
+            ["bottom-4 left-4", "rounded-bl-xl border-b-2 border-l-2 border-r-0 border-t-0"],
+            ["bottom-4 right-4", "rounded-br-xl border-b-2 border-r-2 border-l-0 border-t-0"],
+          ] as [string, string][]).map(([pos, border], i) => (
+            <div
+              key={i}
+              className={`absolute ${pos} w-9 h-9 ${border} border-[#B3D59F] z-10`}
+            />
+          ))}
+
+          {/* Scan line */}
+          <div
+            className="absolute left-8 right-8 h-0.5 bg-[#B3D59F]/70 z-10"
+            style={{
+              top: "50%",
+              boxShadow: "0 0 10px #B3D59F",
+              animation: "scanline 2.2s ease-in-out infinite",
+            }}
+          />
+
+          {/* Bottom label */}
+          <div className="absolute bottom-4 left-0 right-0 flex justify-center z-10">
+            <span
+              className="bg-black/60 text-white text-[11px] font-bold px-3.5 py-1.5 rounded-full backdrop-blur-sm"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              {loading ? "Verifying QR Code..." : "Point camera at lobby QR"}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Manual code input form */}
+      {!lobby && (
+        <>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex-1 h-px bg-[#E0EAD8]" />
+            <span
+              className="text-[12px] font-bold text-[#A0B09A] bg-[#F0F5EE] px-3 py-1 rounded-full"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              OR ENTER CODE
+            </span>
+            <div className="flex-1 h-px bg-[#E0EAD8]" />
+          </div>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              verifyAndJoinLobby(code);
+            }}
+            className="flex gap-2 mb-4"
+          >
+            <input
+              type="text"
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              placeholder="e.g. MED123"
+              maxLength={12}
+              className="flex-1 px-4 py-3.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#A0B09A] focus:outline-none focus:border-[#B3D59F] focus:ring-2 focus:ring-[#B3D59F]/30 transition-all text-[15px] font-mono tracking-widest uppercase font-bold"
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-12 h-12 rounded-xl bg-[#B3D59F] flex items-center justify-center hover:bg-[#9DC885] active:scale-95 transition-all shrink-0 shadow-sm self-center disabled:opacity-60"
+              title="Join Lobby"
+            >
+              <Send size={16} className="text-[#1A3312]" />
+            </button>
+          </form>
+        </>
+      )}
+
+      {/* Participants waiting area */}
+      <div className="bg-[#F7FBF5] border border-[#D4ECC5] rounded-2xl p-4 flex-1 mb-4">
+        <div className="flex items-center gap-2 mb-4">
+          <div
+            className="w-2.5 h-2.5 rounded-full bg-[#B3D59F]"
+            style={{ animation: "pulse 1.5s ease-in-out infinite" }}
+          />
+          <p
+            className="text-[14px] font-bold text-[#1A2816]"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            {lobby ? "Participants Ready" : "Lobby Participants"}
+          </p>
+          <span
+            className="ml-auto text-[11px] text-[#6B7C6B] bg-white border border-[#D4ECC5] px-2.5 py-0.5 rounded-lg font-bold"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            {participants.length}/{lobby?.max_players || 8}
+          </span>
+        </div>
+
+        <div className="space-y-2.5">
+          {participants.map((p, i) => (
+            <div
+              key={p.userId || i}
+              className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all ${
+                p.isCurrentUser
+                  ? "bg-[#F0F8EC] border-[#B3D59F] shadow-sm"
+                  : "bg-white border-[#E8EDE6]"
+              }`}
+            >
+              {/* Host kick button (shown on left for other participants) */}
+              {isHost && !p.isCurrentUser && (
+                <button
+                  type="button"
+                  onClick={() => handleKickParticipant(p.userId)}
+                  className="w-7 h-7 rounded-lg bg-[#FFF0F2] text-[#C0384E] hover:bg-[#FDE2E6] flex items-center justify-center transition-colors shrink-0"
+                  title={`Kick ${p.name}`}
+                  aria-label={`Kick ${p.name}`}
+                >
+                  <X size={14} strokeWidth={2.5} />
+                </button>
+              )}
+
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                  p.isCurrentUser ? "bg-[#3D6B2A] text-white" : "bg-[#B3D59F] text-[#1A3312]"
+                }`}
+              >
+                <span className="text-[12px] font-bold" style={{ fontFamily: "'Lexend', sans-serif" }}>
+                  {p.name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span
+                  className={`text-[14px] truncate ${
+                    p.isCurrentUser ? "text-[#1A3312] font-extrabold" : "text-[#1A2816] font-semibold"
+                  }`}
+                  style={{ fontFamily: "'Nunito', sans-serif" }}
+                >
+                  {p.name}
+                </span>
+
+                {p.isHost && (
+                  <span
+                    className="text-[9px] font-extrabold text-[#3D6B2A] bg-[#E8F5E2] border border-[#B3D59F] px-1.5 py-0.5 rounded flex items-center gap-0.5 uppercase tracking-wider shrink-0"
+                    style={{ fontFamily: "'Lexend', sans-serif" }}
+                  >
+                    <Crown size={9} /> HOST
+                  </span>
+                )}
+              </div>
+
+              {p.isCurrentUser && (
+                <span
+                  className="ml-auto text-[10px] font-extrabold text-[#3D6B2A] bg-white border border-[#B3D59F] px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0"
+                  style={{ fontFamily: "'Lexend', sans-serif" }}
+                >
+                  YOU
+                </span>
+              )}
+            </div>
+          ))}
+
+          {participants.length === 0 && (
+            <div
+              className="py-6 text-center text-[#6B7C6B] text-[13px]"
+              style={{ fontFamily: "'Nunito', sans-serif" }}
+            >
+              {lobby
+                ? "Waiting for participants to scan and join..."
+                : "Scan a QR code or enter a room code above."}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Host Controls & Action Buttons */}
+      {lobby && (
+        <div className="pt-2">
+          {lobby.status === "active" ? (
+            <div className="bg-[#3D6B2A] text-white p-4 rounded-2xl text-center font-extrabold text-[15px] shadow-lg animate-pulse flex items-center justify-center gap-2" style={{ fontFamily: "'Lexend', sans-serif" }}>
+              <div className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
+              Starting Challenge Questions...
+            </div>
+          ) : isHost ? (
+            <button
+              onClick={handleStartLobby}
+              disabled={startingLobby || participants.length === 0}
+              className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[16px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              {startingLobby ? "Starting Session..." : "Start Challenge Now"}
+              <ArrowRight size={18} strokeWidth={2.5} />
+            </button>
+          ) : (
+            <div className="flex items-center justify-center gap-2 p-3 bg-white border border-[#E8EDE6] rounded-2xl text-[#6B7C6B] text-[13px] font-semibold" style={{ fontFamily: "'Nunito', sans-serif" }}>
+              <Clock size={15} className="text-[#3D6B2A] animate-spin" />
+              Waiting for host to start challenge...
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Modal to Broadcast QR Code to Classroom */}
+      <LobbyQRCodeModal
+        isOpen={showQRModal}
+        lobby={lobby}
+        onClose={() => setShowQRModal(false)}
+      />
+    </div>
+  );
+}
+
+// ─── Screen 6: Quiz Gameplay ──────────────────────────────────────────
+function QuizScreen({
+  lobby,
+  onFinish,
+}: {
+  lobby: any;
+  onFinish: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedAnswerId, setSelectedAnswerId] = useState<string | null>(null);
+  const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
+  const [score, setScore] = useState(0);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  // Load questions for this lobby
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      setLoading(true);
+      setErrorMsg("");
+      try {
+        let loadedQuestions: any[] = [];
+
+        // 1. Try to fetch questions linked to this lobby
+        if (lobby?.id) {
+          const { data: lqData, error: lqError } = await supabase
+            .from("lobby_questions")
+            .select(`
+              order_index,
+              questions (
+                id,
+                question_text,
+                category,
+                points,
+                time_limit_seconds,
+                answers (
+                  id,
+                  answer_text,
+                  is_correct,
+                  order_index
+                )
+              )
+            `)
+            .eq("lobby_id", lobby.id)
+            .order("order_index", { ascending: true });
+
+          if (!lqError && lqData && lqData.length > 0) {
+            loadedQuestions = lqData
+              .map((item: any) => item.questions)
+              .filter(Boolean);
+          }
+        }
+
+        // 2. Fallback: If no lobby_questions, fetch from questions table
+        if (loadedQuestions.length === 0) {
+          const { data: allQ, error: allQError } = await supabase
+            .from("questions")
+            .select(`
+              id,
+              question_text,
+              category,
+              points,
+              time_limit_seconds,
+              answers (
+                id,
+                answer_text,
+                is_correct,
+                order_index
+              )
+            `)
+            .limit(5);
+
+          if (!allQError && allQ) {
+            loadedQuestions = allQ;
+          }
+        }
+
+        // Sort answers by order_index
+        loadedQuestions.forEach((q) => {
+          if (q.answers) {
+            q.answers.sort(
+              (a: any, b: any) => (a.order_index || 0) - (b.order_index || 0)
+            );
+          }
+        });
+
+        setQuestions(loadedQuestions);
+      } catch (err: any) {
+        setErrorMsg(err.message || "Failed to load questions.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuestions();
+  }, [lobby?.id]);
+
+  const currentQ = questions[currentIndex];
+
+  const handleSelectOption = (answerId: string) => {
+    if (isAnswerSubmitted) return;
+    setSelectedAnswerId(answerId);
+  };
+
+  const handleSubmitOrNext = () => {
+    if (!isAnswerSubmitted) {
+      if (!selectedAnswerId) return;
+
+      const selected = currentQ?.answers?.find(
+        (a: any) => a.id === selectedAnswerId
+      );
+      if (selected?.is_correct) {
+        setScore((prev) => prev + (currentQ.points || 100));
+      }
+      setIsAnswerSubmitted(true);
+    } else {
+      if (currentIndex + 1 < questions.length) {
+        setCurrentIndex((prev) => prev + 1);
+        setSelectedAnswerId(null);
+        setIsAnswerSubmitted(false);
+      } else {
+        setIsCompleted(true);
+      }
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center px-6 py-12" style={{ minHeight: 600 }}>
+        <div className="w-12 h-12 rounded-full border-4 border-[#B3D59F] border-t-transparent animate-spin mb-4" />
+        <p className="text-[14px] font-bold text-[#1A2816]" style={{ fontFamily: "'Lexend', sans-serif" }}>
+          Loading Challenge Questions...
+        </p>
+      </div>
+    );
+  }
+
+  if (errorMsg || questions.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center px-6 py-12 text-center" style={{ minHeight: 600 }}>
+        <div className="w-14 h-14 rounded-2xl bg-[#FFF4F6] text-[#C0384E] flex items-center justify-center mb-3">
+          <X size={28} />
+        </div>
+        <h3 className="text-[18px] font-extrabold text-[#1A2816] mb-1" style={{ fontFamily: "'Lexend', sans-serif" }}>
+          No Questions Found
+        </h3>
+        <p className="text-[13px] text-[#6B7C6B] mb-5 max-w-[260px]" style={{ fontFamily: "'Nunito', sans-serif" }}>
+          {errorMsg || "No questions have been attached to this lobby yet."}
+        </p>
+        <button
+          onClick={onFinish}
+          className="px-6 py-3 rounded-xl bg-[#B3D59F] text-[#1A3312] font-bold text-[14px]"
+          style={{ fontFamily: "'Lexend', sans-serif" }}
+        >
+          Return to Dashboard
+        </button>
+      </div>
+    );
+  }
+
+  if (isCompleted) {
+    return (
+      <div className="flex flex-col items-center justify-center px-6 py-8 text-center" style={{ minHeight: 650 }}>
+        <div className="w-20 h-20 rounded-3xl bg-[#F0F8EC] border-2 border-[#B3D59F] text-[#3D6B2A] flex items-center justify-center mb-4 shadow-lg">
+          <Trophy size={40} />
+        </div>
+
+        <span
+          className="text-[11px] font-extrabold text-[#3D6B2A] bg-[#E8F5E2] border border-[#B3D59F] px-3 py-1 rounded-full uppercase tracking-wider mb-2"
+          style={{ fontFamily: "'Lexend', sans-serif" }}
+        >
+          Challenge Complete
+        </span>
+
+        <h3
+          className="text-[24px] font-extrabold text-[#1A2816] mb-1"
+          style={{ fontFamily: "'Lexend', sans-serif" }}
+        >
+          Great Job!
+        </h3>
+        <p className="text-[13px] text-[#6B7C6B] mb-6" style={{ fontFamily: "'Nunito', sans-serif" }}>
+          You have completed all questions in this session.
+        </p>
+
+        {/* Score Card */}
+        <div className="w-full bg-[#F7FBF5] border border-[#D4ECC5] rounded-2xl p-5 mb-6">
+          <p className="text-[12px] font-bold text-[#6B7C6B] uppercase tracking-wider mb-1" style={{ fontFamily: "'Lexend', sans-serif" }}>
+            Total Score Earned
+          </p>
+          <p className="text-[36px] font-extrabold text-[#1A3312]" style={{ fontFamily: "'Lexend', sans-serif" }}>
+            +{score} <span className="text-[16px] text-[#3D6B2A]">XP</span>
+          </p>
+        </div>
+
+        <button
+          onClick={onFinish}
+          className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[16px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all"
+          style={{ fontFamily: "'Lexend', sans-serif" }}
+        >
+          Finish & Return to Dashboard
+        </button>
+      </div>
+    );
+  }
+
+  const optionLabels = ["A", "B", "C", "D"];
+
+  return (
+    <div className="flex flex-col h-full justify-between px-4 pt-3 pb-5 overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0">
+        {/* Header Info */}
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <span
+              className="text-[10px] font-bold text-[#3D6B2A] uppercase tracking-wider block"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              {lobby?.school || "Challenge Session"}
+            </span>
+            <p
+              className="text-[12px] font-bold text-[#1A2816]"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              Question {currentIndex + 1} of {questions.length}
+            </p>
+          </div>
+
+          <div className="bg-[#F0F8EC] border border-[#D4ECC5] text-[#3D6B2A] px-2.5 py-0.5 rounded-lg text-[11px] font-extrabold">
+            +{currentQ.points || 100} XP
+          </div>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="w-full h-1.5 bg-[#E0EAD8] rounded-full overflow-hidden mb-3">
+          <div
+            className="h-full bg-[#3D6B2A] transition-all duration-300 rounded-full"
+            style={{
+              width: `${((currentIndex + 1) / questions.length) * 100}%`,
+            }}
+          />
+        </div>
+
+        {/* Question Card */}
+        <div className="bg-[#F7FBF5] border border-[#D4ECC5] rounded-2xl p-3.5 mb-2.5 shadow-sm">
+          <span
+            className="text-[9px] font-extrabold text-[#3D6B2A] bg-white border border-[#B3D59F] px-1.5 py-0.5 rounded uppercase tracking-wider inline-block mb-1.5"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            {currentQ.category?.toUpperCase() || "FIRST AID"}
+          </span>
+          <h3
+            className="text-[14px] font-bold text-[#1A2816] leading-tight"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            {currentQ.question_text}
+          </h3>
+        </div>
+
+        {/* Answer Options */}
+        <div className="space-y-2 mb-2 flex-1 flex flex-col justify-center">
+          {(currentQ.answers || []).map((ans: any, idx: number) => {
+            const isSelected = selectedAnswerId === ans.id;
+            let cardStyle =
+              "bg-white border-[#E8EDE6] text-[#1A2816] hover:bg-[#F7FBF5]";
+            let badgeStyle = "bg-[#F0F5EE] text-[#6B7C6B]";
+
+            if (isAnswerSubmitted) {
+              if (ans.is_correct) {
+                cardStyle =
+                  "bg-[#E8F5E2] border-[#3D6B2A] text-[#1A3312] ring-1 ring-[#3D6B2A]";
+                badgeStyle = "bg-[#3D6B2A] text-white";
+              } else if (isSelected && !ans.is_correct) {
+                cardStyle = "bg-[#FFF0F2] border-[#C0384E] text-[#C0384E]";
+                badgeStyle = "bg-[#C0384E] text-white";
+              } else {
+                cardStyle =
+                  "bg-white border-[#E8EDE6] text-[#A0B09A] opacity-60";
+              }
+            } else if (isSelected) {
+              cardStyle =
+                "bg-[#F0F8EC] border-[#B3D59F] text-[#1A3312] ring-2 ring-[#B3D59F]/50 shadow-sm";
+              badgeStyle = "bg-[#B3D59F] text-[#1A3312]";
+            }
+
+            return (
+              <button
+                key={ans.id || idx}
+                type="button"
+                onClick={() => handleSelectOption(ans.id)}
+                disabled={isAnswerSubmitted}
+                className={`w-full p-2.5 rounded-xl border text-left flex items-center gap-2.5 transition-all ${cardStyle}`}
+              >
+                <div
+                  className={`w-7 h-7 rounded-lg font-bold flex items-center justify-center shrink-0 text-[12px] transition-colors ${badgeStyle}`}
+                  style={{ fontFamily: "'Lexend', sans-serif" }}
+                >
+                  {optionLabels[idx] || idx + 1}
+                </div>
+                <span
+                  className="text-[13px] font-semibold flex-1 leading-snug"
+                  style={{ fontFamily: "'Nunito', sans-serif" }}
+                >
+                  {ans.answer_text}
+                </span>
+                {isAnswerSubmitted && ans.is_correct && (
+                  <CheckCircle size={16} className="text-[#3D6B2A] shrink-0" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Action Button */}
+      <button
+        onClick={handleSubmitOrNext}
+        disabled={!selectedAnswerId}
+        className="w-full py-3.5 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[15px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 mt-2"
+        style={{ fontFamily: "'Lexend', sans-serif" }}
+      >
+        {isAnswerSubmitted
+          ? currentIndex + 1 < questions.length
+            ? "Next Question"
+            : "View Results"
+          : "Submit Answer"}
+        <ArrowRight size={18} strokeWidth={2.5} />
+      </button>
+    </div>
+  );
+}
+
+// ─── Component: Bottom Navigation Bar ─────────────────────────────────
+function BottomNavBar({
+  current,
+  onNavigate,
+}: {
+  current: Screen;
+  onNavigate: (s: Screen) => void;
+}) {
+  const tabs: {
+    id: Screen;
+    label: string;
+    icon: React.ComponentType<{ size?: number; className?: string }>;
+  }[] = [
+    { id: "dashboard", label: "Home", icon: Home },
+    { id: "learn", label: "Learn", icon: BookOpen },
+    { id: "ar-hub", label: "AR Practice", icon: Boxes },
+  ];
+
+  return (
+    <div
+      className="absolute bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#E8EDE6] px-4 pt-2 flex items-center justify-around shadow-lg"
+      style={{
+        paddingBottom: "max(0.6rem, env(safe-area-inset-bottom))",
+      }}
+    >
+      {tabs.map((tab) => {
+        const Icon = tab.icon;
+        const isActive = current === tab.id;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => onNavigate(tab.id)}
+            className={`flex flex-col items-center justify-center py-1.5 px-5 rounded-2xl transition-all duration-150 ${
+              isActive
+                ? "bg-[#F0F8EC] text-[#1A3312] font-extrabold shadow-sm scale-105"
+                : "text-[#8A9C87] hover:text-[#1A2816] hover:bg-[#F7FBF5]"
+            }`}
+          >
+            <Icon
+              size={20}
+              className={isActive ? "text-[#3D6B2A]" : "text-[#8A9C87]"}
+            />
+            <span
+              className="text-[11px] mt-0.5 tracking-tight"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              {tab.label}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Screen: Learn & Curriculum ───────────────────────────────────────
+function LearnScreen({ onExploreCPR }: { onExploreCPR: () => void }) {
+  const modules = [
+    {
+      id: "cpr",
+      title: "Basic Life Support (BLS) & CPR",
+      desc: "Chest compression mechanics, rescue breaths, automated external defibrillator (AED).",
+      icon: Heart,
+      tag: "ESSENTIAL",
+      xp: "+120 XP",
+      time: "8 min",
+      status: "Available",
+    },
+    {
+      id: "choking",
+      title: "Choking & Airway Obstruction",
+      desc: "Recognizing universal distress signal, back blows, and Heimlich maneuver.",
+      icon: Shield,
+      tag: "HIGH PRIORITY",
+      xp: "+100 XP",
+      time: "6 min",
+      status: "Available",
+    },
+    {
+      id: "hemorrhage",
+      title: "Severe Bleeding & Tourniquets",
+      desc: "Direct wound pressure, wound packing, and commercial tourniquet application.",
+      icon: Activity,
+      tag: "TRAUMA",
+      xp: "+150 XP",
+      time: "10 min",
+      status: "Available",
+    },
+    {
+      id: "burns",
+      title: "Burns & Thermal Injuries",
+      desc: "Assessing 1st to 3rd degree burns, cooling protocols, and dressing rules.",
+      icon: Sparkles,
+      tag: "FIRST AID",
+      xp: "+80 XP",
+      time: "5 min",
+      status: "Coming Soon",
+    },
+  ];
+
+  return (
+    <div className="flex flex-col px-5 py-5 pb-24" style={{ minHeight: 740 }}>
+      {/* Top Header */}
       <div className="mb-5">
+        <span
+          className="text-[11px] font-bold text-[#3D6B2A] uppercase tracking-wider block"
+          style={{ fontFamily: "'Lexend', sans-serif" }}
+        >
+          First Aid Curriculum
+        </span>
         <h2
           className="text-[22px] font-extrabold text-[#1A2816]"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          Challenge Lobby
+          Learn & Practice
         </h2>
         <p
           className="text-[13px] text-[#6B7C6B] mt-0.5"
           style={{ fontFamily: "'Nunito', sans-serif" }}
         >
-          Scan QR or enter code to join
+          Interactive medical education modules and clinical flashcards
         </p>
       </div>
 
-      {/* Camera viewfinder */}
-      <div className="bg-[#1A2816] rounded-3xl overflow-hidden mb-5 relative mx-auto w-full"
-        style={{ aspectRatio: "1/1", maxWidth: 300 }}>
+      {/* Overview Progress Card */}
+      <div className="bg-[#F0F8EC] border border-[#D4ECC5] rounded-3xl p-5 mb-5 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p
+              className="text-[15px] font-extrabold text-[#1A2816]"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              Core Curriculum Progress
+            </p>
+            <p className="text-[12px] text-[#6B7C6B]">2 of 4 modules unlocked</p>
+          </div>
+          <div className="w-10 h-10 rounded-2xl bg-[#B3D59F] flex items-center justify-center text-[#1A3312]">
+            <BookOpen size={20} />
+          </div>
+        </div>
+        <div className="w-full h-2 bg-[#D8E8D0] rounded-full overflow-hidden">
+          <div className="w-1/2 h-full bg-[#3D6B2A] rounded-full" />
+        </div>
+      </div>
 
-        {/* Real camera feed */}
+      {/* Modules List */}
+      <div className="space-y-3.5 flex-1">
+        {modules.map((mod) => {
+          const Icon = mod.icon;
+          return (
+            <div
+              key={mod.id}
+              onClick={() => {
+                if (mod.id === "cpr") onExploreCPR();
+              }}
+              className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                mod.status === "Available"
+                  ? "bg-white border-[#E8EDE6] hover:border-[#B3D59F] hover:bg-[#F7FBF5] shadow-sm active:scale-[0.99]"
+                  : "bg-[#FAFCF9] border-[#E8EDE6] opacity-75"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="w-10 h-10 rounded-xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center text-[#3D6B2A] shrink-0">
+                  <Icon size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="text-[9px] font-extrabold text-[#3D6B2A] bg-[#E8F5E2] border border-[#B3D59F] px-1.5 py-0.5 rounded uppercase"
+                      style={{ fontFamily: "'Lexend', sans-serif" }}
+                    >
+                      {mod.tag}
+                    </span>
+                    <span className="text-[11px] text-[#A0B09A] ml-auto font-semibold">
+                      {mod.time}
+                    </span>
+                  </div>
+                  <h3
+                    className="text-[15px] font-bold text-[#1A2816] mt-1 truncate"
+                    style={{ fontFamily: "'Lexend', sans-serif" }}
+                  >
+                    {mod.title}
+                  </h3>
+                </div>
+              </div>
+
+              <p
+                className="text-[12px] text-[#6B7C6B] line-clamp-2 mb-3"
+                style={{ fontFamily: "'Nunito', sans-serif" }}
+              >
+                {mod.desc}
+              </p>
+
+              <div className="flex items-center justify-between pt-2 border-t border-[#F0F5EE]">
+                <span
+                  className="text-[11px] font-bold text-[#3D6B2A]"
+                  style={{ fontFamily: "'Lexend', sans-serif" }}
+                >
+                  {mod.xp}
+                </span>
+                <span
+                  className={`text-[11px] font-bold px-2.5 py-0.5 rounded-lg ${
+                    mod.status === "Available"
+                      ? "bg-[#B3D59F] text-[#1A3312]"
+                      : "bg-[#E8EDE6] text-[#6B7C6B]"
+                  }`}
+                  style={{ fontFamily: "'Lexend', sans-serif" }}
+                >
+                  {mod.status === "Available" ? "Start Lesson →" : "Locked"}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Screen: AR Movements Hub ─────────────────────────────────────────
+function ARHubScreen({
+  onSelectMovement,
+}: {
+  onSelectMovement: (movement: any, mode: "learn" | "try") => void;
+}) {
+  const [activeMovementModal, setActiveMovementModal] = useState<any | null>(
+    null
+  );
+
+  const movements = [
+    {
+      id: "cpr",
+      title: "Cardiopulmonary Resuscitation (CPR)",
+      subtitle: "Chest compressions & rhythm control",
+      category: "Basic Life Support",
+      stats: "100-120 BPM · 5-6 cm Depth",
+      difficulty: "High Priority",
+      icon: Heart,
+      has3D: true,
+      details:
+        "Perform rhythmic chest compressions directly on the center of the chest. Maintain locked elbows and vertical shoulder alignment to generate effective blood flow.",
+    },
+    {
+      id: "heimlich",
+      title: "Heimlich Maneuver",
+      subtitle: "Abdominal thrusts for airway obstruction",
+      category: "Choking Emergency",
+      stats: "Upward & Inward Thrusts",
+      difficulty: "Essential",
+      icon: Shield,
+      has3D: false,
+      details:
+        "Stand behind the patient, place a fist above the navel, and deliver quick, inward-and-upward abdominal thrusts to dislodge the foreign object.",
+    },
+    {
+      id: "recovery",
+      title: "Recovery Position (PLS)",
+      subtitle: "Lateral alignment for breathing victim",
+      category: "Patient Positioning",
+      stats: "Clear Airway & Stable Base",
+      difficulty: "Core Skill",
+      icon: Activity,
+      has3D: false,
+      details:
+        "Roll an unresponsive breathing patient onto their side to keep their airway open and prevent aspiration of fluids.",
+    },
+    {
+      id: "tourniquet",
+      title: "Pressure Dressing & Bandaging",
+      subtitle: "Direct wound compression technique",
+      category: "Trauma & Hemorrhage",
+      stats: "Continuous Direct Force",
+      difficulty: "Vital",
+      icon: Layers,
+      has3D: false,
+      details:
+        "Apply firm, uninterrupted pressure with both hands directly over the bleeding site using sterile gauze or a pressure dressing.",
+    },
+  ];
+
+  return (
+    <div className="flex flex-col px-5 py-5 pb-24" style={{ minHeight: 740 }}>
+      {/* Top Header */}
+      <div className="mb-5">
+        <div className="flex items-center gap-2">
+          <span
+            className="text-[11px] font-bold text-[#3D6B2A] uppercase tracking-wider block"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            AR & Computer Vision
+          </span>
+          <span className="bg-[#B3D59F] text-[#1A3312] text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
+            Interactive
+          </span>
+        </div>
+        <h2
+          className="text-[22px] font-extrabold text-[#1A2816]"
+          style={{ fontFamily: "'Lexend', sans-serif" }}
+        >
+          AR Medical Movements
+        </h2>
+        <p
+          className="text-[13px] text-[#6B7C6B] mt-0.5"
+          style={{ fontFamily: "'Nunito', sans-serif" }}
+        >
+          Learn 3D animations and analyze your own body movements with AI
+        </p>
+      </div>
+
+      {/* Feature Banner */}
+      <div className="bg-[#1A2816] text-white rounded-3xl p-5 mb-5 shadow-md relative overflow-hidden">
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-1.5">
+            <Sparkles size={16} className="text-[#B3D59F]" />
+            <span
+              className="text-[11px] font-bold text-[#B3D59F] uppercase tracking-wider"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              AI Movement Analysis
+            </span>
+          </div>
+          <h3
+            className="text-[16px] font-extrabold mb-1"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            Real-Time Posture Feedback
+          </h3>
+          <p className="text-[12px] text-white/80 leading-relaxed max-w-[260px]">
+            Select any medical procedure below to see it in 3D or practice with your camera.
+          </p>
+        </div>
+        <div className="absolute right-3 -bottom-2 text-[#B3D59F]/15">
+          <Boxes size={110} />
+        </div>
+      </div>
+
+      {/* Movements Grid */}
+      <div className="space-y-3.5 flex-1">
+        {movements.map((move) => {
+          const Icon = move.icon;
+          return (
+            <div
+              key={move.id}
+              onClick={() => setActiveMovementModal(move)}
+              className="bg-white border border-[#E8EDE6] hover:border-[#B3D59F] hover:bg-[#F7FBF5] p-4 rounded-2xl shadow-sm cursor-pointer transition-all active:scale-[0.99]"
+            >
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="w-11 h-11 rounded-2xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center text-[#3D6B2A] shrink-0">
+                  <Icon size={22} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="text-[9px] font-extrabold text-[#3D6B2A] bg-[#E8F5E2] border border-[#B3D59F] px-1.5 py-0.5 rounded uppercase"
+                      style={{ fontFamily: "'Lexend', sans-serif" }}
+                    >
+                      {move.category}
+                    </span>
+                    <span className="text-[10px] text-[#A0B09A] font-bold ml-auto uppercase">
+                      {move.difficulty}
+                    </span>
+                  </div>
+                  <h3
+                    className="text-[15px] font-bold text-[#1A2816] mt-1"
+                    style={{ fontFamily: "'Lexend', sans-serif" }}
+                  >
+                    {move.title}
+                  </h3>
+                </div>
+              </div>
+
+              <p
+                className="text-[12px] text-[#6B7C6B] line-clamp-1 mb-3"
+                style={{ fontFamily: "'Nunito', sans-serif" }}
+              >
+                {move.subtitle}
+              </p>
+
+              <div className="flex items-center justify-between pt-2 border-t border-[#F0F5EE]">
+                <span
+                  className="text-[11px] font-semibold text-[#6B7C6B] flex items-center gap-1"
+                  style={{ fontFamily: "'Nunito', sans-serif" }}
+                >
+                  <Activity size={12} className="text-[#3D6B2A]" /> {move.stats}
+                </span>
+                <span
+                  className="text-[11px] font-extrabold text-[#3D6B2A] bg-[#F0F8EC] border border-[#D4ECC5] px-2.5 py-1 rounded-xl"
+                  style={{ fontFamily: "'Lexend', sans-serif" }}
+                >
+                  Options →
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Movement Action Modal */}
+      {activeMovementModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div
+            className="w-full max-w-[350px] bg-white rounded-3xl p-6 shadow-2xl border border-[#E8EDE6] relative animate-fadeIn"
+            style={{ fontFamily: "'Nunito', sans-serif" }}
+          >
+            <button
+              onClick={() => setActiveMovementModal(null)}
+              className="absolute top-4 right-4 text-[#A0B09A] hover:text-[#1A2816] p-1.5 rounded-full hover:bg-[#F0F5EE]"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="w-12 h-12 rounded-2xl bg-[#F0F8EC] border border-[#D4ECC5] text-[#3D6B2A] flex items-center justify-center mb-3">
+              <Boxes size={24} />
+            </div>
+
+            <span
+              className="text-[10px] font-extrabold text-[#3D6B2A] uppercase tracking-wider block mb-0.5"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              {activeMovementModal.category}
+            </span>
+            <h3
+              className="text-[18px] font-extrabold text-[#1A2816] mb-1.5"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              {activeMovementModal.title}
+            </h3>
+            <p className="text-[12px] text-[#6B7C6B] mb-5 leading-relaxed">
+              {activeMovementModal.details}
+            </p>
+
+            {/* Action Choice Buttons */}
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  const m = activeMovementModal;
+                  setActiveMovementModal(null);
+                  onSelectMovement(m, "learn");
+                }}
+                className="w-full p-4 rounded-2xl bg-[#F0F8EC] border-2 border-[#B3D59F] text-[#1A3312] flex items-center justify-between hover:bg-[#E2F0DC] active:scale-[0.98] transition-all shadow-sm"
+              >
+                <div className="flex items-center gap-3 text-left">
+                  <div className="w-10 h-10 rounded-xl bg-[#B3D59F] flex items-center justify-center text-[#1A3312] shrink-0 shadow-sm">
+                    <Boxes size={20} />
+                  </div>
+                  <div>
+                    <p
+                      className="text-[14px] font-extrabold"
+                      style={{ fontFamily: "'Lexend', sans-serif" }}
+                    >
+                      1. Learn (3D & AR Demo)
+                    </p>
+                    <p className="text-[11px] text-[#6B7C6B]">
+                      Inspect animated 3D model & step guide
+                    </p>
+                  </div>
+                </div>
+                <ArrowRight size={16} className="text-[#3D6B2A]" />
+              </button>
+
+              <button
+                onClick={() => {
+                  const m = activeMovementModal;
+                  setActiveMovementModal(null);
+                  onSelectMovement(m, "try");
+                }}
+                className="w-full p-4 rounded-2xl bg-white border border-[#D8E8D0] text-[#1A2816] flex items-center justify-between hover:bg-[#F7FBF5] active:scale-[0.98] transition-all shadow-sm"
+              >
+                <div className="flex items-center gap-3 text-left">
+                  <div className="w-10 h-10 rounded-xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center text-[#3D6B2A] shrink-0">
+                    <Camera size={20} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <p
+                        className="text-[14px] font-extrabold"
+                        style={{ fontFamily: "'Lexend', sans-serif" }}
+                      >
+                        2. Try it Out
+                      </p>
+                      <span className="text-[8px] font-extrabold bg-[#B3D59F] text-[#1A3312] px-1.5 py-0.5 rounded uppercase">
+                        AI
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#6B7C6B]">
+                      MediaPipe camera posture analysis
+                    </p>
+                  </div>
+                </div>
+                <ArrowRight size={16} className="text-[#A0B09A]" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Screen: AR Try (Camera & Body Vision) ─────────────────────────────
+function ARTryScreen({
+  movement,
+  onBack,
+}: {
+  movement: any;
+  onBack: () => void;
+}) {
+  const webcamRef = useRef<Webcam>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  return (
+    <div className="flex flex-col px-5 py-5" style={{ minHeight: 740 }}>
+      {/* Top Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <span
+            className="text-[11px] font-bold text-[#3D6B2A] uppercase tracking-wider block"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            AI Movement Analysis
+          </span>
+          <h2
+            className="text-[18px] font-extrabold text-[#1A2816]"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            {movement?.title || "Movement Tracking"}
+          </h2>
+        </div>
+        <span className="bg-[#B3D59F] text-[#1A3312] text-[10px] font-bold px-2.5 py-1 rounded-full uppercase">
+          MediaPipe Live
+        </span>
+      </div>
+
+      {/* Camera Viewfinder */}
+      <div
+        className="bg-[#1A2816] rounded-3xl overflow-hidden mb-4 relative mx-auto w-full shadow-lg"
+        style={{ aspectRatio: "4/5", maxWidth: 330 }}
+      >
         <Webcam
           audio={false}
           ref={webcamRef}
-          screenshotFormat="image/jpeg"
-          videoConstraints={{ facingMode: "environment" }}
+          videoConstraints={{ facingMode: "user" }}
           className="absolute inset-0 w-full h-full object-cover"
         />
 
@@ -1442,109 +3414,67 @@ function LobbyScreen() {
           />
         ))}
 
-        {/* Scan line overlay over webcam */}
-        <div
-          className="absolute left-8 right-8 h-0.5 bg-[#B3D59F]/70 z-10"
-          style={{
-            top: "50%",
-            boxShadow: "0 0 10px #B3D59F",
-            animation: "scanline 2.2s ease-in-out infinite",
-          }}
-        />
+        {/* Calibration Box / Posture Guide Skeleton Outline */}
+        <div className="absolute inset-10 border border-dashed border-[#B3D59F]/50 rounded-2xl flex flex-col items-center justify-center z-10 pointer-events-none">
+          <div className="w-16 h-16 rounded-full border border-[#B3D59F]/60 mb-2" />
+          <div className="w-28 h-20 border border-[#B3D59F]/60 rounded-xl" />
+          <span className="text-[10px] text-[#B3D59F] font-bold mt-2 bg-black/50 px-2 py-0.5 rounded-full">
+            Align torso & arms here
+          </span>
+        </div>
 
-        {/* Bottom label */}
+        {/* Status tag */}
         <div className="absolute bottom-4 left-0 right-0 flex justify-center z-10">
           <span
-            className="bg-black/50 text-white text-[11px] font-bold px-3 py-1.5 rounded-full backdrop-blur-sm"
+            className="bg-black/65 text-white text-[11px] font-bold px-3.5 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            Scan QR to start challenge
+            <div className="w-2 h-2 rounded-full bg-[#B3D59F] animate-ping" />
+            {isAnalyzing
+              ? "Tracking Posture · 30 FPS"
+              : "Camera Initialized & Calibrated"}
           </span>
         </div>
       </div>
 
-      {/* OR divider */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex-1 h-px bg-[#E0EAD8]" />
-        <span
-          className="text-[12px] font-bold text-[#A0B09A] bg-[#F0F5EE] px-3 py-1 rounded-full"
+      {/* Feedback Card */}
+      <div className="bg-[#F7FBF5] border border-[#D4ECC5] rounded-2xl p-4 mb-4">
+        <div className="flex items-center gap-2 mb-1.5">
+          <Activity size={16} className="text-[#3D6B2A]" />
+          <p
+            className="text-[13px] font-extrabold text-[#1A2816]"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            Live Posture Guidelines
+          </p>
+        </div>
+        <ul
+          className="text-[12px] text-[#6B7C6B] space-y-1 list-disc pl-4"
+          style={{ fontFamily: "'Nunito', sans-serif" }}
+        >
+          <li>Keep arms straight with locked elbows at 90° angle.</li>
+          <li>Position body directly above the patient.</li>
+          <li>Maintain target compression rhythm of 100-120 per minute.</li>
+        </ul>
+      </div>
+
+      {/* Actions */}
+      <div className="space-y-2 mt-auto">
+        <button
+          onClick={() => setIsAnalyzing(!isAnalyzing)}
+          className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[15px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          OR
-        </span>
-        <div className="flex-1 h-px bg-[#E0EAD8]" />
-      </div>
-
-      {/* Manual code input */}
-      <div className="flex gap-2 mb-5">
-        <input
-          type="text"
-          value={code}
-          onChange={(e) => setCode(e.target.value.toUpperCase())}
-          placeholder="Enter challenge code"
-          maxLength={8}
-          className="flex-1 px-4 py-3.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#A0B09A] focus:outline-none focus:border-[#B3D59F] focus:ring-2 focus:ring-[#B3D59F]/30 transition-all text-[15px] font-mono tracking-widest uppercase"
-        />
-        <button className="w-12 h-12 rounded-xl bg-[#B3D59F] flex items-center justify-center hover:bg-[#9DC885] active:scale-95 transition-all shrink-0 shadow-sm self-center">
-          <Send size={16} className="text-[#1A3312]" />
+          {isAnalyzing ? "Stop Analysis" : "Start Live Movement Tracking"}
         </button>
-      </div>
 
-      {/* Waiting area */}
-      <div className="bg-[#F7FBF5] border border-[#D4ECC5] rounded-2xl p-4 flex-1">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-2.5 h-2.5 rounded-full bg-[#B3D59F]" style={{ animation: "pulse 1.5s ease-in-out infinite" }} />
-          <p
-            className="text-[14px] font-bold text-[#1A2816]"
-            style={{ fontFamily: "'Lexend', sans-serif" }}
-          >
-            Waiting for participants...
-          </p>
-          <span
-            className="ml-auto text-[11px] text-[#6B7C6B] bg-white border border-[#D4ECC5] px-2 py-0.5 rounded-lg font-bold"
-            style={{ fontFamily: "'Lexend', sans-serif" }}
-          >
-            {participants.length}/8
-          </span>
-        </div>
-        <div className="space-y-2.5">
-          {participants.map((name, i) => (
-            <div key={i} className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-[#B3D59F] flex items-center justify-center shrink-0">
-                <span
-                  className="text-[#1A3312] text-[12px] font-bold"
-                  style={{ fontFamily: "'Lexend', sans-serif" }}
-                >
-                  {name.charAt(0)}
-                </span>
-              </div>
-              <span
-                className="text-[14px] text-[#1A2816] font-semibold"
-                style={{ fontFamily: "'Nunito', sans-serif" }}
-              >
-                {name}
-              </span>
-              <div className="w-2 h-2 rounded-full bg-[#B3D59F] ml-auto" />
-            </div>
-          ))}
-          <div className="flex items-center gap-2.5 opacity-45">
-            <div className="w-8 h-8 rounded-full border-2 border-dashed border-[#B3D59F] flex items-center justify-center shrink-0">
-              <span
-                className="text-[#3D6B2A] text-[12px]"
-                style={{ fontFamily: "'Lexend', sans-serif" }}
-              >
-                ?
-              </span>
-            </div>
-            <span
-              className="text-[13px] text-[#6B7C6B]"
-              style={{ fontFamily: "'Nunito', sans-serif" }}
-            >
-              Waiting to join...
-            </span>
-            <Clock size={13} className="text-[#A0B09A] ml-auto" />
-          </div>
-        </div>
+        <button
+          onClick={onBack}
+          className="w-full py-2.5 text-[#6B7C6B] font-bold text-[13px] hover:text-[#1A2816]"
+          style={{ fontFamily: "'Nunito', sans-serif" }}
+        >
+          Back to AR Movements
+        </button>
       </div>
     </div>
   );
@@ -1588,11 +3518,13 @@ function ResetPasswordModal({
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
+
       setIsSuccess(true);
       setTimeout(() => {
         setIsSuccess(false);
+        setNewPassword("");
+        setConfirmPassword("");
         onSuccess();
-        onClose();
       }, 1500);
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to update password.");
@@ -1602,104 +3534,86 @@ function ResetPasswordModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div
-        className="w-full max-w-[350px] bg-white rounded-3xl p-6 shadow-2xl border border-[#E8EDE6] relative"
+        className="w-full max-w-[340px] bg-white rounded-3xl p-6 shadow-2xl border border-[#E8EDE6] relative"
         style={{ fontFamily: "'Nunito', sans-serif" }}
       >
-        {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-[#A0B09A] hover:text-[#1A2816] transition-colors p-1.5 rounded-full hover:bg-[#F0F5EE]"
-          aria-label="Close"
+          className="absolute top-4 right-4 text-[#A0B09A] hover:text-[#1A2816] p-1.5 rounded-full hover:bg-[#F0F5EE]"
+          aria-label="Close modal"
         >
           <X size={18} />
         </button>
 
+        <div className="w-12 h-12 rounded-2xl bg-[#F0F8EC] border border-[#D4ECC5] text-[#3D6B2A] flex items-center justify-center mb-4">
+          <Key size={22} />
+        </div>
+
+        <h3
+          className="text-[18px] font-extrabold text-[#1A2816] mb-1"
+          style={{ fontFamily: "'Lexend', sans-serif" }}
+        >
+          Change Password
+        </h3>
+        <p className="text-[12px] text-[#6B7C6B] mb-4">
+          Enter your new password below.
+        </p>
+
         {isSuccess ? (
-          <div className="py-6 text-center flex flex-col items-center">
-            <div className="w-14 h-14 rounded-2xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center mb-4">
-              <CheckCircle size={28} className="text-[#3D6B2A]" />
-            </div>
-            <h3
-              className="text-[20px] font-extrabold text-[#1A2816]"
-              style={{ fontFamily: "'Lexend', sans-serif" }}
-            >
-              Password Updated!
-            </h3>
-            <p className="text-[13px] text-[#6B7C6B] mt-1">
-              Your password has been changed successfully.
+          <div className="bg-[#E8F5E2] border border-[#B3D59F] text-[#1A3312] p-4 rounded-2xl text-center">
+            <p className="text-[13px] font-bold flex items-center justify-center gap-1.5">
+              <Check size={16} className="text-[#3D6B2A]" /> Password updated successfully!
             </p>
           </div>
         ) : (
-          <div>
-            <div className="w-12 h-12 rounded-2xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center mb-4">
-              <Lock size={22} className="text-[#3D6B2A]" />
-            </div>
-
-            <h3
-              className="text-[20px] font-extrabold text-[#1A2816]"
-              style={{ fontFamily: "'Lexend', sans-serif" }}
-            >
-              Set New Password
-            </h3>
-            <p className="text-[13px] text-[#6B7C6B] mt-0.5 mb-5">
-              Enter and confirm your new account password.
-            </p>
-
-            <div className="space-y-3.5">
-              <div>
-                <label
-                  className="text-[12px] font-bold text-[#1A2816] mb-1 block"
-                  style={{ fontFamily: "'Lexend', sans-serif" }}
-                >
-                  New Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="At least 6 characters"
-                    className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#A0B09A] focus:outline-none focus:border-[#B3D59F] text-[13px]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A0B09A] hover:text-[#3D6B2A]"
-                  >
-                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label
-                  className="text-[12px] font-bold text-[#1A2816] mb-1 block"
-                  style={{ fontFamily: "'Lexend', sans-serif" }}
-                >
-                  Confirm New Password
-                </label>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm new password"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#A0B09A] focus:outline-none focus:border-[#B3D59F] text-[13px]"
-                />
-              </div>
-            </div>
-
+          <div className="space-y-3">
             {errorMsg && (
-              <div className="mt-3 bg-[#FFF4F6] border border-[#FCC8D0] text-[#C0384E] text-[12px] px-3.5 py-2.5 rounded-xl font-semibold">
+              <div className="bg-[#FFF4F6] border border-[#FCC8D0] text-[#C0384E] text-[12px] p-2.5 rounded-xl font-semibold">
                 {errorMsg}
               </div>
             )}
 
+            <div>
+              <label className="text-[11px] font-bold text-[#6B7C6B] uppercase mb-1 block" style={{ fontFamily: "'Lexend', sans-serif" }}>
+                New Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="At least 6 characters"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] text-[13px] focus:outline-none focus:border-[#B3D59F]"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A0B09A]"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-[#6B7C6B] uppercase mb-1 block" style={{ fontFamily: "'Lexend', sans-serif" }}>
+                Confirm New Password
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm password"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] text-[13px] focus:outline-none focus:border-[#B3D59F]"
+              />
+            </div>
+
             <button
               onClick={handleUpdate}
               disabled={loading}
-              className="w-full py-3.5 rounded-xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[15px] shadow-sm hover:bg-[#9DC885] active:scale-[0.98] transition-all mt-5 disabled:opacity-60"
+              className="w-full py-3.5 rounded-xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[14px] shadow-sm hover:bg-[#9DC885] active:scale-[0.98] transition-all disabled:opacity-60 mt-2"
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
               {loading ? "Updating..." : "Update Password"}
@@ -1713,28 +3627,112 @@ function ResetPasswordModal({
 
 // ─── App shell ───────────────────────────────────────────────────────
 export default function App() {
-  const [historyStack, setHistoryStack] = useState<Screen[]>(["landing"]);
+  const [historyStack, setHistoryStack] = useState<Screen[]>(() => {
+    // Check if user has an active cached profile and saved screen
+    const cachedProfile = storage.get(STORAGE_KEYS.PROFILE, null);
+    const cachedScreen = storage.get<Screen>(
+      STORAGE_KEYS.LAST_SCREEN,
+      "dashboard"
+    );
+    if (
+      cachedProfile &&
+      ["dashboard", "learn", "ar-hub", "profile"].includes(cachedScreen)
+    ) {
+      return [cachedScreen];
+    }
+    return ["landing"];
+  });
+
   const [showResetModal, setShowResetModal] = useState(false);
+  const [activeLobby, setActiveLobby] = useState<any>(() =>
+    storage.get(STORAGE_KEYS.ACTIVE_LOBBY, null)
+  );
+  const [selectedMovement, setSelectedMovement] = useState<any>(null);
+  const [kickedToast, setKickedToast] = useState<string | null>(null);
   const current = historyStack[historyStack.length - 1];
 
+  const handleUserKicked = async (lobbyId?: string) => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user && (lobbyId || activeLobby?.id)) {
+        await supabase
+          .from("lobby_participants")
+          .delete()
+          .eq("lobby_id", lobbyId || activeLobby?.id)
+          .eq("user_id", user.id);
+      }
+    } catch (e) {
+      console.warn("Error deleting self from lobby participants:", e);
+    }
+    setActiveLobby(null);
+    storage.remove(STORAGE_KEYS.ACTIVE_LOBBY);
+    navigate("dashboard", true);
+    setKickedToast("You were kicked by the host.");
+    setTimeout(() => {
+      setKickedToast(null);
+    }, 2000);
+  };
+
+  const showBottomNav =
+    current === "dashboard" || current === "learn" || current === "ar-hub";
+
   useEffect(() => {
-    // Set initial state in history so we can detect back navigation to it
-    window.history.replaceState({ screen: "landing", index: 0 }, "");
+    // Check live Supabase session and hydrate state
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        const lastScreen = storage.get<Screen>(
+          STORAGE_KEYS.LAST_SCREEN,
+          "dashboard"
+        );
+        const targetScreen = [
+          "dashboard",
+          "learn",
+          "ar-hub",
+          "profile",
+        ].includes(lastScreen)
+          ? lastScreen
+          : "dashboard";
+        setHistoryStack([targetScreen]);
+        window.history.replaceState(
+          { screen: targetScreen, index: 0 },
+          "",
+          `?screen=${targetScreen}`
+        );
+      } else {
+        // If not logged in, ensure we don't land on a protected screen
+        setHistoryStack((prev) => {
+          const cur = prev[prev.length - 1];
+          if (["dashboard", "learn", "ar-hub", "profile", "quiz", "lobby"].includes(cur)) {
+            return ["landing"];
+          }
+          return prev;
+        });
+      }
+    });
 
     const handlePopState = (e: PopStateEvent) => {
       if (e.state && typeof e.state.index === "number") {
         const newIndex = e.state.index;
         // Keep the stack aligned with the history index
-        setHistoryStack(prev => prev.slice(0, newIndex + 1));
+        setHistoryStack((prev) => prev.slice(0, newIndex + 1));
       }
     };
 
     window.addEventListener("popstate", handlePopState);
 
     // Listen for password recovery from Supabase email link
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") {
         setShowResetModal(true);
+      } else if (event === "SIGNED_OUT") {
+        storage.clearUserSession();
+        setHistoryStack(["auth"]);
+      } else if (event === "SIGNED_IN" && session) {
+        setHistoryStack(["dashboard"]);
       }
     });
 
@@ -1748,10 +3746,20 @@ export default function App() {
     };
   }, []);
 
-  const navigate = (s: Screen) => {
-    const newIndex = historyStack.length;
-    window.history.pushState({ screen: s, index: newIndex }, "", `?screen=${s}`);
-    setHistoryStack(prev => [...prev, s]);
+  const navigate = (s: Screen, replace = false) => {
+    if (["dashboard", "learn", "ar-hub"].includes(s)) {
+      storage.set(STORAGE_KEYS.LAST_SCREEN, s);
+    }
+
+    if (replace) {
+      const index = Math.max(0, historyStack.length - 1);
+      window.history.replaceState({ screen: s, index }, "", `?screen=${s}`);
+      setHistoryStack((prev) => [...prev.slice(0, -1), s]);
+    } else {
+      const newIndex = historyStack.length;
+      window.history.pushState({ screen: s, index: newIndex }, "", `?screen=${s}`);
+      setHistoryStack((prev) => [...prev, s]);
+    }
   };
 
   const goBack = () => {
@@ -1773,15 +3781,19 @@ export default function App() {
       `}</style>
 
       <div
-        className="min-h-screen bg-[#EDF3E9] flex flex-col items-center justify-center py-0 sm:py-8 px-0 sm:px-4"
+        className="min-h-[100dvh] h-full w-full bg-white sm:bg-[#EDF3E9] flex flex-col items-center justify-start sm:justify-center py-0 sm:py-8 px-0 sm:px-4"
         style={{ fontFamily: "'Nunito', sans-serif" }}
       >
         {/* The "Invisible Frame" that fixes the layout and scrolling */}
-        <div className="w-full sm:max-w-[390px] h-[100dvh] sm:h-[820px] bg-white sm:rounded-[48px] sm:shadow-2xl overflow-hidden flex flex-col relative">
-
+        <div
+          className="w-full sm:max-w-[390px] h-[100dvh] sm:h-[820px] bg-white sm:rounded-[48px] sm:shadow-2xl overflow-hidden flex flex-col relative"
+          style={{
+            paddingTop: "env(safe-area-inset-top)",
+          }}
+        >
           {/* Back Button Header */}
           {historyStack.length > 1 && (
-            <div className="w-full px-5 pt-5 pb-1 flex items-center justify-between z-10 shrink-0 bg-transparent gap-2">
+            <div className="w-full px-5 pt-3 pb-1 flex items-center justify-between z-10 shrink-0 bg-transparent gap-2">
               <button
                 onClick={goBack}
                 className="w-10 h-10 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-[#E8EDE6] flex items-center justify-center text-[#1A2816] hover:bg-white active:scale-95 transition-all shrink-0"
@@ -1794,31 +3806,145 @@ export default function App() {
                 className="flex-1 text-center text-[10px] sm:text-[11px] font-extrabold text-[#1A3312] leading-tight uppercase tracking-wide"
                 style={{ fontFamily: "'Lexend', sans-serif" }}
               >
-                Asociatia pentru Sustinerea<br />Educatiei Medicale
+                Asociatia pentru Sustinerea
+                <br />
+                Educatiei Medicale
               </span>
 
               <div className="w-10 h-10 flex items-center justify-center shrink-0 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-[#E8EDE6] p-0.5 overflow-hidden">
-                <img src="/logo_asem.png" alt="ASEM Logo" className="w-full h-full object-contain" />
+                <img
+                  src="/logo_asem.png"
+                  alt="ASEM Logo"
+                  className="w-full h-full object-contain"
+                />
               </div>
             </div>
           )}
 
           {/* This inner div is what actually enables the scrolling! */}
-          <div className="flex-1 overflow-y-auto scrollbar-none relative">
-            {current === "landing" && <LandingScreen onNext={() => navigate("cpr")} />}
-            {current === "cpr" && <CPRScreen onNext={() => navigate("onboarding")} />}
-            {current === "onboarding" && <OnboardingScreen onNext={() => navigate("auth")} />}
-            {current === "auth" && <AuthScreen onNext={() => navigate("dashboard")} />}
+          <div
+            className={`flex-1 overflow-y-auto scrollbar-none relative ${
+              showBottomNav ? "pb-24" : ""
+            }`}
+          >
+            {current === "landing" && (
+              <LandingScreen onNext={() => navigate("cpr")} />
+            )}
+            {current === "cpr" && (
+              <CPRScreen onNext={() => navigate("onboarding")} />
+            )}
+            {current === "onboarding" && (
+              <OnboardingScreen onNext={() => navigate("auth")} />
+            )}
+            {current === "auth" && (
+              <AuthScreen onNext={() => navigate("dashboard")} />
+            )}
             {current === "dashboard" && (
               <DashboardScreen
-                onScan={() => navigate("lobby")}
+                onScan={() => {
+                  setActiveLobby(null);
+                  storage.remove(STORAGE_KEYS.ACTIVE_LOBBY);
+                  navigate("lobby");
+                }}
                 onOpenProfile={() => navigate("profile")}
+                onCreateLobby={() => navigate("create-lobby")}
               />
             )}
-            {current === "lobby" && <LobbyScreen />}
-            {current === "profile" && <ProfileScreen onBack={goBack} />}
+            {current === "learn" && (
+              <LearnScreen onExploreCPR={() => navigate("cpr")} />
+            )}
+            {current === "ar-hub" && (
+              <ARHubScreen
+                onSelectMovement={(move, mode) => {
+                  setSelectedMovement(move);
+                  if (mode === "learn") {
+                    navigate("cpr");
+                  } else {
+                    navigate("ar-try");
+                  }
+                }}
+              />
+            )}
+            {current === "ar-try" && (
+              <ARTryScreen
+                movement={selectedMovement}
+                onBack={goBack}
+              />
+            )}
+            {current === "create-lobby" && (
+              <CreateLobbyScreen
+                onBack={goBack}
+                onLobbyCreated={(lobby) => {
+                  setActiveLobby(lobby);
+                  storage.set(STORAGE_KEYS.ACTIVE_LOBBY, lobby);
+                  navigate("lobby");
+                }}
+              />
+            )}
+            {current === "lobby" && (
+              <LobbyScreen
+                initialLobby={activeLobby}
+                _onLeave={() => {
+                  storage.remove(STORAGE_KEYS.ACTIVE_LOBBY);
+                  goBack();
+                }}
+                onLobbyJoined={(lobby) => {
+                  setActiveLobby(lobby);
+                  storage.set(STORAGE_KEYS.ACTIVE_LOBBY, lobby);
+                }}
+                onStartGame={(lobby) => {
+                  setActiveLobby(lobby);
+                  navigate("quiz", true);
+                }}
+                onKicked={handleUserKicked}
+              />
+            )}
+            {current === "quiz" && (
+              <QuizScreen
+                lobby={activeLobby}
+                onFinish={() => {
+                  storage.remove(STORAGE_KEYS.ACTIVE_LOBBY);
+                  navigate("dashboard");
+                }}
+              />
+            )}
+            {current === "profile" && (
+              <ProfileScreen
+                onBack={goBack}
+                onSignOut={() => {
+                  storage.clearUserSession();
+                  navigate("auth", true);
+                }}
+              />
+            )}
           </div>
 
+          {/* Kicked by Host Notification Banner */}
+          {kickedToast && (
+            <div className="absolute top-14 left-4 right-4 z-50 bg-[#F0F8EC] border-2 border-[#B3D59F] rounded-2xl p-3.5 shadow-2xl flex items-center gap-3 animate-fadeIn">
+              <div className="w-8 h-8 rounded-xl bg-[#FFF0F2] border border-[#FAD2D2] flex items-center justify-center text-[#D93838] shrink-0 font-extrabold text-[14px]">
+                ✕
+              </div>
+              <p
+                className="text-[13px] font-extrabold text-[#C0384E]"
+                style={{ fontFamily: "'Lexend', sans-serif" }}
+              >
+                {kickedToast}
+              </p>
+            </div>
+          )}
+
+          {/* Persistent Bottom Navigation Bar */}
+          {showBottomNav && (
+            <BottomNavBar
+              current={current}
+              onNavigate={(tab) => {
+                if (tab !== current) {
+                  navigate(tab);
+                }
+              }}
+            />
+          )}
         </div>
       </div>
 
