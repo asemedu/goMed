@@ -39,6 +39,7 @@ import {
   Play, Pause, X, User, Mail, Edit3, Key, LogOut, Check,
   Plus, Crown, Home, Boxes, Sparkles, Activity, Layers, Video
 } from "lucide-react";
+import { storage, STORAGE_KEYS } from "./lib/storage";
 
 type Screen =
   | "landing"
@@ -808,7 +809,7 @@ function DashboardScreen({
     display_name?: string;
     points?: number;
     ranking?: number;
-  } | null>(null);
+  } | null>(() => storage.get(STORAGE_KEYS.PROFILE, null));
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -823,12 +824,15 @@ function DashboardScreen({
 
           if (data && !error) {
             setProfile(data);
+            storage.set(STORAGE_KEYS.PROFILE, data);
           } else {
-            setProfile({
+            const fallbackProfile = {
               display_name: user.user_metadata?.display_name || user.email?.split("@")[0] || "User",
               points: 0,
               ranking: 0,
-            });
+            };
+            setProfile(fallbackProfile);
+            storage.set(STORAGE_KEYS.PROFILE, fallbackProfile);
           }
         }
       } catch (err) {
@@ -1082,14 +1086,20 @@ function DashboardScreen({
 }
 
 // ─── Screen: Profile ─────────────────────────────────────────────────
-function ProfileScreen({ onBack }: { onBack: () => void }) {
+function ProfileScreen({
+  onBack,
+  onSignOut,
+}: {
+  onBack: () => void;
+  onSignOut?: () => void;
+}) {
   const [profile, setProfile] = useState<{
     display_name?: string;
     username?: string;
     email?: string;
     points?: number;
     ranking?: number;
-  } | null>(null);
+  } | null>(() => storage.get(STORAGE_KEYS.PROFILE, null));
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [editNameValue, setEditNameValue] = useState("");
@@ -1110,13 +1120,15 @@ function ProfileScreen({ onBack }: { onBack: () => void }) {
             .single();
 
           const loadedName = data?.display_name || user.user_metadata?.display_name || "Alex Chen";
-          setProfile({
+          const newProfile = {
             display_name: loadedName,
             username: user.email?.split("@")[0] || "alexchen",
             email: user.email || "alex.chen@example.com",
             points: data?.points ?? 0,
             ranking: data?.ranking ?? 0,
-          });
+          };
+          setProfile(newProfile);
+          storage.set(STORAGE_KEYS.PROFILE, newProfile);
           setEditNameValue(loadedName);
         }
       } catch (err) {
@@ -1168,7 +1180,9 @@ function ProfileScreen({ onBack }: { onBack: () => void }) {
           data: { display_name: trimmed },
         });
 
-        setProfile((prev) => (prev ? { ...prev, display_name: trimmed } : null));
+        const updated = profile ? { ...profile, display_name: trimmed } : null;
+        setProfile(updated);
+        if (updated) storage.set(STORAGE_KEYS.PROFILE, updated);
         setIsEditingName(false);
         setFeedbackMsg({ type: "success", text: "Display name updated successfully!" });
       }
@@ -1420,6 +1434,20 @@ function ProfileScreen({ onBack }: { onBack: () => void }) {
           </button>
         </div>
       </div>
+
+      {/* Sign Out Button */}
+      <button
+        type="button"
+        onClick={async () => {
+          await supabase.auth.signOut();
+          storage.clearUserSession();
+          onSignOut?.();
+        }}
+        className="w-full py-3.5 rounded-2xl bg-white border border-[#FAD2D2] text-[#D93838] font-extrabold text-[15px] hover:bg-[#FFF5F5] active:scale-[0.98] transition-all flex items-center justify-center gap-2 mb-3 shadow-sm"
+        style={{ fontFamily: "'Lexend', sans-serif" }}
+      >
+        <LogOut size={18} strokeWidth={2.2} /> Sign Out of goMed
+      </button>
 
       {/* Back / Done button */}
       <button
@@ -1779,11 +1807,13 @@ function LobbyScreen({
   _onLeave,
   onStartGame,
   onLobbyJoined,
+  onKicked,
 }: {
   initialLobby?: any;
   _onLeave?: () => void;
   onStartGame?: (lobby: any) => void;
   onLobbyJoined?: (lobby: any) => void;
+  onKicked?: (lobbyId?: string) => void;
 }) {
   const [code, setCode] = useState(initialLobby?.code || "");
   const [loading, setLoading] = useState(false);
@@ -1795,6 +1825,8 @@ function LobbyScreen({
   const [showQRModal, setShowQRModal] = useState(Boolean(initialLobby?.isNewlyCreated));
   const [startingLobby, setStartingLobby] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  // Temporary 5-second kick cooldown map to prevent initial flicker without blocking re-joining
+  const kickedUserCooldownsRef = useRef<Map<string, number>>(new Map());
 
   const webcamRef = useRef<Webcam>(null);
   const lastScannedRef = useRef<string>("");
@@ -1816,10 +1848,10 @@ function LobbyScreen({
         const param = url.searchParams.get("code");
         if (param) return param.trim().toUpperCase();
       }
+      return raw.trim().toUpperCase();
     } catch {
-      // Not a standard URL
+      return raw.trim().toUpperCase();
     }
-    return raw.trim().toUpperCase();
   };
 
   const fetchParticipants = useCallback(
@@ -1828,26 +1860,26 @@ function LobbyScreen({
         const {
           data: { user },
         } = await supabase.auth.getUser();
-
-        let currentUserName = "You";
-        if (user) {
-          const { data: prof } = await supabase
-            .from("profiles")
-            .select("display_name")
-            .eq("id", user.id)
-            .single();
-
-          currentUserName =
-            prof?.display_name ||
-            user.user_metadata?.display_name ||
-            user.email?.split("@")[0] ||
-            "You";
-        }
+        const currentUserName =
+          user?.user_metadata?.display_name ||
+          user?.email?.split("@")[0] ||
+          "User";
 
         const { data, error } = await supabase
           .from("lobby_participants")
           .select("user_id, profiles(display_name)")
           .eq("lobby_id", lobbyId);
+
+        const effectiveHostId = currentLobbyHostId || lobby?.host_id;
+
+        // If regular user joined previously but was deleted from participants by host, trigger onKicked
+        if (data && !error && user && user.id !== effectiveHostId) {
+          const userStillInLobby = data.some((p: any) => p.user_id === user.id);
+          if (!userStillInLobby && participants.length > 0) {
+            onKicked?.(lobbyId);
+            return;
+          }
+        }
 
         const list: {
           userId: string;
@@ -1856,37 +1888,39 @@ function LobbyScreen({
           isHost: boolean;
         }[] = [];
 
-        const effectiveHostId = currentLobbyHostId || lobby?.host_id;
-
         if (data && !error && data.length > 0) {
-          data.forEach((p: any) => {
-            const isCurrent = Boolean(user && p.user_id === user.id);
-            const isLobbyHost = Boolean(effectiveHostId && p.user_id === effectiveHostId);
-            const name =
-              p.profiles?.display_name || (isCurrent ? currentUserName : "Participant");
-            list.push({
-              userId: p.user_id,
-              name,
-              isCurrentUser: isCurrent,
-              isHost: isLobbyHost,
+          const now = Date.now();
+          data
+            // Filter out only if user was kicked in the last 5 seconds (allows re-join after 5s or on re-scan)
+            .filter((p: any) => (kickedUserCooldownsRef.current.get(p.user_id) ?? 0) <= now)
+            .forEach((p: any) => {
+              const isCurrent = Boolean(user && p.user_id === user.id);
+              const isLobbyHost = Boolean(effectiveHostId && p.user_id === effectiveHostId);
+              const name =
+                p.profiles?.display_name || (isCurrent ? currentUserName : "Participant");
+              list.push({
+                userId: p.user_id,
+                name,
+                isCurrentUser: isCurrent,
+                isHost: isLobbyHost,
+              });
             });
-          });
 
-          // Ensure current user is in list if signed in
-          if (user && !list.some((item) => item.isCurrentUser)) {
+          // Only ensure host is present if host is viewing and not in participant rows
+          if (user && effectiveHostId === user.id && !list.some((item) => item.userId === user.id)) {
             list.unshift({
               userId: user.id,
               name: currentUserName,
               isCurrentUser: true,
-              isHost: Boolean(effectiveHostId && user.id === effectiveHostId),
+              isHost: true,
             });
           }
-        } else if (user) {
+        } else if (user && effectiveHostId === user.id) {
           list.push({
             userId: user.id,
             name: currentUserName,
             isCurrentUser: true,
-            isHost: Boolean(effectiveHostId && user.id === effectiveHostId),
+            isHost: true,
           });
         }
 
@@ -1895,7 +1929,7 @@ function LobbyScreen({
         console.error("Error fetching participants:", err);
       }
     },
-    [lobby?.host_id]
+    [lobby?.host_id, participants.length, onKicked]
   );
 
   const verifyAndJoinLobby = useCallback(
@@ -1958,6 +1992,13 @@ function LobbyScreen({
 
         // 3. Fetch participants list
         await fetchParticipants(lobbyData.id, lobbyData.host_id);
+
+        // 4. Broadcast join event to host and peers
+        roomChannelRef.current?.send({
+          type: "broadcast",
+          event: "participant_joined",
+          payload: { userId: user?.id, code: lobbyData.code },
+        });
       } catch (err: any) {
         setErrorMsg(err.message || "Failed to join lobby.");
       } finally {
@@ -1967,6 +2008,8 @@ function LobbyScreen({
     [fetchParticipants, onLobbyJoined]
   );
 
+  const roomChannelRef = useRef<any>(null);
+
   // If initial lobby provided, fetch participants on mount
   useEffect(() => {
     if (initialLobby?.id) {
@@ -1974,12 +2017,20 @@ function LobbyScreen({
     }
   }, [initialLobby, fetchParticipants]);
 
-  // Real-time subscription to participants list and lobby status
+  // Robust Dual-Sync: Supabase Realtime (Postgres Changes + Direct Broadcast) + Periodic Heartbeat
   useEffect(() => {
     if (!lobby?.id) return;
 
-    const participantsChannel = supabase
-      .channel(`lobby-participants-${lobby.id}`)
+    // 1. Unified Real-Time Channel
+    const channel = supabase.channel(`lobby-room-${lobby.id}`, {
+      config: {
+        broadcast: { self: true },
+      },
+    });
+    roomChannelRef.current = channel;
+
+    channel
+      // A. Listen to Postgres table changes for participants
       .on(
         "postgres_changes",
         {
@@ -1992,10 +2043,7 @@ function LobbyScreen({
           fetchParticipants(lobby.id);
         }
       )
-      .subscribe();
-
-    const lobbyStatusChannel = supabase
-      .channel(`lobby-status-${lobby.id}`)
+      // B. Listen to Postgres table changes for lobby status
       .on(
         "postgres_changes",
         {
@@ -2010,20 +2058,59 @@ function LobbyScreen({
           }
         }
       )
+      // C. Instant Peer-to-Peer Broadcast Events (0ms network latency)
+      .on("broadcast", { event: "participant_joined" }, (payload: any) => {
+        if (payload?.payload?.userId) {
+          // Immediately unblock user if they re-scan / re-join
+          kickedUserCooldownsRef.current.delete(payload.payload.userId);
+        }
+        fetchParticipants(lobby.id);
+      })
+      .on("broadcast", { event: "participant_kicked" }, (payload: any) => {
+        if (payload?.payload?.targetUserId && payload.payload.targetUserId === currentUserId) {
+          onKicked?.(lobby.id);
+        } else {
+          fetchParticipants(lobby.id);
+        }
+      })
+      .on("broadcast", { event: "game_started" }, () => {
+        setLobby((prev: any) => ({ ...prev, status: "active" }));
+      })
       .subscribe();
 
+    // 2. Heartbeat Sync Polling Fallback (Runs every 2s to guarantee mobile sync)
+    const heartbeatTimer = setInterval(async () => {
+      try {
+        const { data: latestLobby } = await supabase
+          .from("lobbies")
+          .select("status")
+          .eq("id", lobby.id)
+          .single();
+
+        if (latestLobby?.status && latestLobby.status !== lobby.status) {
+          setLobby((prev: any) => ({ ...prev, status: latestLobby.status }));
+        }
+
+        // Periodically refresh participant count
+        fetchParticipants(lobby.id);
+      } catch (e) {
+        console.warn("[LobbySync] Heartbeat poll error:", e);
+      }
+    }, 2000);
+
     return () => {
-      supabase.removeChannel(participantsChannel);
-      supabase.removeChannel(lobbyStatusChannel);
+      clearInterval(heartbeatTimer);
+      supabase.removeChannel(channel);
+      roomChannelRef.current = null;
     };
-  }, [lobby?.id, fetchParticipants]);
+  }, [lobby?.id, lobby?.status, fetchParticipants, currentUserId, onKicked]);
 
   // Trigger game start when lobby status becomes active
   useEffect(() => {
     if (lobby?.status === "active") {
       const timer = setTimeout(() => {
         onStartGame?.(lobby);
-      }, 1200);
+      }, 800);
       return () => clearTimeout(timer);
     }
   }, [lobby?.status, lobby, onStartGame]);
@@ -2032,12 +2119,27 @@ function LobbyScreen({
   const handleKickParticipant = async (targetUserId: string) => {
     if (!lobby || !isHost) return;
     try {
+      // 1. Add 5-second cooldown to avoid instant flicker
+      kickedUserCooldownsRef.current.set(targetUserId, Date.now() + 5000);
+
+      // 2. Immediately remove from local state
+      setParticipants((prev) => prev.filter((p) => p.userId !== targetUserId));
+
+      // 3. Delete from database
       await supabase
         .from("lobby_participants")
         .delete()
         .eq("lobby_id", lobby.id)
         .eq("user_id", targetUserId);
 
+      // 4. Broadcast kick event to peer
+      roomChannelRef.current?.send({
+        type: "broadcast",
+        event: "participant_kicked",
+        payload: { targetUserId },
+      });
+
+      // 5. Re-fetch participants to verify
       await fetchParticipants(lobby.id);
     } catch (err) {
       console.error("Error kicking participant:", err);
@@ -2055,6 +2157,14 @@ function LobbyScreen({
         .eq("id", lobby.id);
 
       if (error) throw error;
+
+      // Broadcast game started event immediately across the room
+      roomChannelRef.current?.send({
+        type: "broadcast",
+        event: "game_started",
+        payload: { lobbyId: lobby.id },
+      });
+
       setLobby((prev: any) => ({ ...prev, status: "active" }));
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to start lobby.");
@@ -2621,105 +2731,116 @@ function QuizScreen({
   const optionLabels = ["A", "B", "C", "D"];
 
   return (
-    <div className="flex flex-col px-5 py-5" style={{ minHeight: 740 }}>
-      {/* Header Info */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
+    <div className="flex flex-col h-full justify-between px-4 pt-3 pb-5 overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0">
+        {/* Header Info */}
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <span
+              className="text-[10px] font-bold text-[#3D6B2A] uppercase tracking-wider block"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              {lobby?.school || "Challenge Session"}
+            </span>
+            <p
+              className="text-[12px] font-bold text-[#1A2816]"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              Question {currentIndex + 1} of {questions.length}
+            </p>
+          </div>
+
+          <div className="bg-[#F0F8EC] border border-[#D4ECC5] text-[#3D6B2A] px-2.5 py-0.5 rounded-lg text-[11px] font-extrabold">
+            +{currentQ.points || 100} XP
+          </div>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="w-full h-1.5 bg-[#E0EAD8] rounded-full overflow-hidden mb-3">
+          <div
+            className="h-full bg-[#3D6B2A] transition-all duration-300 rounded-full"
+            style={{
+              width: `${((currentIndex + 1) / questions.length) * 100}%`,
+            }}
+          />
+        </div>
+
+        {/* Question Card */}
+        <div className="bg-[#F7FBF5] border border-[#D4ECC5] rounded-2xl p-3.5 mb-2.5 shadow-sm">
           <span
-            className="text-[11px] font-bold text-[#3D6B2A] uppercase tracking-wider block"
+            className="text-[9px] font-extrabold text-[#3D6B2A] bg-white border border-[#B3D59F] px-1.5 py-0.5 rounded uppercase tracking-wider inline-block mb-1.5"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            {lobby?.school || "Challenge Session"}
+            {currentQ.category?.toUpperCase() || "FIRST AID"}
           </span>
-          <p className="text-[13px] font-bold text-[#1A2816]" style={{ fontFamily: "'Lexend', sans-serif" }}>
-            Question {currentIndex + 1} of {questions.length}
-          </p>
+          <h3
+            className="text-[14px] font-bold text-[#1A2816] leading-tight"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            {currentQ.question_text}
+          </h3>
         </div>
 
-        <div className="bg-[#F0F8EC] border border-[#D4ECC5] text-[#3D6B2A] px-3 py-1 rounded-xl text-[12px] font-extrabold">
-          +{currentQ.points || 100} XP
-        </div>
-      </div>
+        {/* Answer Options */}
+        <div className="space-y-2 mb-2 flex-1 flex flex-col justify-center">
+          {(currentQ.answers || []).map((ans: any, idx: number) => {
+            const isSelected = selectedAnswerId === ans.id;
+            let cardStyle =
+              "bg-white border-[#E8EDE6] text-[#1A2816] hover:bg-[#F7FBF5]";
+            let badgeStyle = "bg-[#F0F5EE] text-[#6B7C6B]";
 
-      {/* Progress Bar */}
-      <div className="w-full h-2 bg-[#E0EAD8] rounded-full overflow-hidden mb-5">
-        <div
-          className="h-full bg-[#3D6B2A] transition-all duration-300 rounded-full"
-          style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
-        />
-      </div>
-
-      {/* Question Card */}
-      <div className="bg-[#F7FBF5] border border-[#D4ECC5] rounded-2xl p-5 mb-5 shadow-sm">
-        <span
-          className="text-[10px] font-extrabold text-[#3D6B2A] bg-white border border-[#B3D59F] px-2 py-0.5 rounded-md uppercase tracking-wider inline-block mb-2"
-          style={{ fontFamily: "'Lexend', sans-serif" }}
-        >
-          {currentQ.category?.toUpperCase() || "FIRST AID"}
-        </span>
-        <h3
-          className="text-[16px] font-bold text-[#1A2816] leading-snug"
-          style={{ fontFamily: "'Lexend', sans-serif" }}
-        >
-          {currentQ.question_text}
-        </h3>
-      </div>
-
-      {/* Answer Options */}
-      <div className="space-y-2.5 flex-1 mb-5">
-        {(currentQ.answers || []).map((ans: any, idx: number) => {
-          const isSelected = selectedAnswerId === ans.id;
-          let cardStyle = "bg-white border-[#E8EDE6] text-[#1A2816] hover:bg-[#F7FBF5]";
-          let badgeStyle = "bg-[#F0F5EE] text-[#6B7C6B]";
-
-          if (isAnswerSubmitted) {
-            if (ans.is_correct) {
-              cardStyle = "bg-[#E8F5E2] border-[#3D6B2A] text-[#1A3312] ring-1 ring-[#3D6B2A]";
-              badgeStyle = "bg-[#3D6B2A] text-white";
-            } else if (isSelected && !ans.is_correct) {
-              cardStyle = "bg-[#FFF0F2] border-[#C0384E] text-[#C0384E]";
-              badgeStyle = "bg-[#C0384E] text-white";
-            } else {
-              cardStyle = "bg-white border-[#E8EDE6] text-[#A0B09A] opacity-60";
+            if (isAnswerSubmitted) {
+              if (ans.is_correct) {
+                cardStyle =
+                  "bg-[#E8F5E2] border-[#3D6B2A] text-[#1A3312] ring-1 ring-[#3D6B2A]";
+                badgeStyle = "bg-[#3D6B2A] text-white";
+              } else if (isSelected && !ans.is_correct) {
+                cardStyle = "bg-[#FFF0F2] border-[#C0384E] text-[#C0384E]";
+                badgeStyle = "bg-[#C0384E] text-white";
+              } else {
+                cardStyle =
+                  "bg-white border-[#E8EDE6] text-[#A0B09A] opacity-60";
+              }
+            } else if (isSelected) {
+              cardStyle =
+                "bg-[#F0F8EC] border-[#B3D59F] text-[#1A3312] ring-2 ring-[#B3D59F]/50 shadow-sm";
+              badgeStyle = "bg-[#B3D59F] text-[#1A3312]";
             }
-          } else if (isSelected) {
-            cardStyle = "bg-[#F0F8EC] border-[#B3D59F] text-[#1A3312] ring-2 ring-[#B3D59F]/50 shadow-sm";
-            badgeStyle = "bg-[#B3D59F] text-[#1A3312]";
-          }
 
-          return (
-            <button
-              key={ans.id || idx}
-              type="button"
-              onClick={() => handleSelectOption(ans.id)}
-              disabled={isAnswerSubmitted}
-              className={`w-full p-3.5 rounded-2xl border text-left flex items-center gap-3 transition-all ${cardStyle}`}
-            >
-              <div
-                className={`w-8 h-8 rounded-xl font-bold flex items-center justify-center shrink-0 text-[13px] transition-colors ${badgeStyle}`}
-                style={{ fontFamily: "'Lexend', sans-serif" }}
+            return (
+              <button
+                key={ans.id || idx}
+                type="button"
+                onClick={() => handleSelectOption(ans.id)}
+                disabled={isAnswerSubmitted}
+                className={`w-full p-2.5 rounded-xl border text-left flex items-center gap-2.5 transition-all ${cardStyle}`}
               >
-                {optionLabels[idx] || idx + 1}
-              </div>
-              <span
-                className="text-[14px] font-semibold flex-1 leading-snug"
-                style={{ fontFamily: "'Nunito', sans-serif" }}
-              >
-                {ans.answer_text}
-              </span>
-              {isAnswerSubmitted && ans.is_correct && (
-                <CheckCircle size={18} className="text-[#3D6B2A] shrink-0" />
-              )}
-            </button>
-          );
-        })}
+                <div
+                  className={`w-7 h-7 rounded-lg font-bold flex items-center justify-center shrink-0 text-[12px] transition-colors ${badgeStyle}`}
+                  style={{ fontFamily: "'Lexend', sans-serif" }}
+                >
+                  {optionLabels[idx] || idx + 1}
+                </div>
+                <span
+                  className="text-[13px] font-semibold flex-1 leading-snug"
+                  style={{ fontFamily: "'Nunito', sans-serif" }}
+                >
+                  {ans.answer_text}
+                </span>
+                {isAnswerSubmitted && ans.is_correct && (
+                  <CheckCircle size={16} className="text-[#3D6B2A] shrink-0" />
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Action Button */}
       <button
         onClick={handleSubmitOrNext}
         disabled={!selectedAnswerId}
-        className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[16px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+        className="w-full py-3.5 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[15px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 mt-2"
         style={{ fontFamily: "'Lexend', sans-serif" }}
       >
         {isAnswerSubmitted
@@ -2752,7 +2873,12 @@ function BottomNavBar({
   ];
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#E8EDE6] px-4 py-2 flex items-center justify-around shadow-lg">
+    <div
+      className="absolute bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#E8EDE6] px-4 pt-2 flex items-center justify-around shadow-lg"
+      style={{
+        paddingBottom: "max(0.6rem, env(safe-area-inset-bottom))",
+      }}
+    >
       {tabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = current === tab.id;
@@ -3501,18 +3627,90 @@ function ResetPasswordModal({
 
 // ─── App shell ───────────────────────────────────────────────────────
 export default function App() {
-  const [historyStack, setHistoryStack] = useState<Screen[]>(["landing"]);
+  const [historyStack, setHistoryStack] = useState<Screen[]>(() => {
+    // Check if user has an active cached profile and saved screen
+    const cachedProfile = storage.get(STORAGE_KEYS.PROFILE, null);
+    const cachedScreen = storage.get<Screen>(
+      STORAGE_KEYS.LAST_SCREEN,
+      "dashboard"
+    );
+    if (
+      cachedProfile &&
+      ["dashboard", "learn", "ar-hub", "profile"].includes(cachedScreen)
+    ) {
+      return [cachedScreen];
+    }
+    return ["landing"];
+  });
+
   const [showResetModal, setShowResetModal] = useState(false);
-  const [activeLobby, setActiveLobby] = useState<any>(null);
+  const [activeLobby, setActiveLobby] = useState<any>(() =>
+    storage.get(STORAGE_KEYS.ACTIVE_LOBBY, null)
+  );
   const [selectedMovement, setSelectedMovement] = useState<any>(null);
+  const [kickedToast, setKickedToast] = useState<string | null>(null);
   const current = historyStack[historyStack.length - 1];
+
+  const handleUserKicked = async (lobbyId?: string) => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user && (lobbyId || activeLobby?.id)) {
+        await supabase
+          .from("lobby_participants")
+          .delete()
+          .eq("lobby_id", lobbyId || activeLobby?.id)
+          .eq("user_id", user.id);
+      }
+    } catch (e) {
+      console.warn("Error deleting self from lobby participants:", e);
+    }
+    setActiveLobby(null);
+    storage.remove(STORAGE_KEYS.ACTIVE_LOBBY);
+    navigate("dashboard", true);
+    setKickedToast("You were kicked by the host.");
+    setTimeout(() => {
+      setKickedToast(null);
+    }, 2000);
+  };
 
   const showBottomNav =
     current === "dashboard" || current === "learn" || current === "ar-hub";
 
   useEffect(() => {
-    // Set initial state in history so we can detect back navigation to it
-    window.history.replaceState({ screen: "landing", index: 0 }, "");
+    // Check live Supabase session and hydrate state
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        const lastScreen = storage.get<Screen>(
+          STORAGE_KEYS.LAST_SCREEN,
+          "dashboard"
+        );
+        const targetScreen = [
+          "dashboard",
+          "learn",
+          "ar-hub",
+          "profile",
+        ].includes(lastScreen)
+          ? lastScreen
+          : "dashboard";
+        setHistoryStack([targetScreen]);
+        window.history.replaceState(
+          { screen: targetScreen, index: 0 },
+          "",
+          `?screen=${targetScreen}`
+        );
+      } else {
+        // If not logged in, ensure we don't land on a protected screen
+        setHistoryStack((prev) => {
+          const cur = prev[prev.length - 1];
+          if (["dashboard", "learn", "ar-hub", "profile", "quiz", "lobby"].includes(cur)) {
+            return ["landing"];
+          }
+          return prev;
+        });
+      }
+    });
 
     const handlePopState = (e: PopStateEvent) => {
       if (e.state && typeof e.state.index === "number") {
@@ -3527,9 +3725,14 @@ export default function App() {
     // Listen for password recovery from Supabase email link
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") {
         setShowResetModal(true);
+      } else if (event === "SIGNED_OUT") {
+        storage.clearUserSession();
+        setHistoryStack(["auth"]);
+      } else if (event === "SIGNED_IN" && session) {
+        setHistoryStack(["dashboard"]);
       }
     });
 
@@ -3544,6 +3747,10 @@ export default function App() {
   }, []);
 
   const navigate = (s: Screen, replace = false) => {
+    if (["dashboard", "learn", "ar-hub"].includes(s)) {
+      storage.set(STORAGE_KEYS.LAST_SCREEN, s);
+    }
+
     if (replace) {
       const index = Math.max(0, historyStack.length - 1);
       window.history.replaceState({ screen: s, index }, "", `?screen=${s}`);
@@ -3574,14 +3781,19 @@ export default function App() {
       `}</style>
 
       <div
-        className="min-h-screen bg-[#EDF3E9] flex flex-col items-center justify-center py-0 sm:py-8 px-0 sm:px-4"
+        className="min-h-[100dvh] h-full w-full bg-white sm:bg-[#EDF3E9] flex flex-col items-center justify-start sm:justify-center py-0 sm:py-8 px-0 sm:px-4"
         style={{ fontFamily: "'Nunito', sans-serif" }}
       >
         {/* The "Invisible Frame" that fixes the layout and scrolling */}
-        <div className="w-full sm:max-w-[390px] h-[100dvh] sm:h-[820px] bg-white sm:rounded-[48px] sm:shadow-2xl overflow-hidden flex flex-col relative">
+        <div
+          className="w-full sm:max-w-[390px] h-[100dvh] sm:h-[820px] bg-white sm:rounded-[48px] sm:shadow-2xl overflow-hidden flex flex-col relative"
+          style={{
+            paddingTop: "env(safe-area-inset-top)",
+          }}
+        >
           {/* Back Button Header */}
           {historyStack.length > 1 && (
-            <div className="w-full px-5 pt-5 pb-1 flex items-center justify-between z-10 shrink-0 bg-transparent gap-2">
+            <div className="w-full px-5 pt-3 pb-1 flex items-center justify-between z-10 shrink-0 bg-transparent gap-2">
               <button
                 onClick={goBack}
                 className="w-10 h-10 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-[#E8EDE6] flex items-center justify-center text-[#1A2816] hover:bg-white active:scale-95 transition-all shrink-0"
@@ -3612,7 +3824,7 @@ export default function App() {
           {/* This inner div is what actually enables the scrolling! */}
           <div
             className={`flex-1 overflow-y-auto scrollbar-none relative ${
-              showBottomNav ? "pb-16" : ""
+              showBottomNav ? "pb-24" : ""
             }`}
           >
             {current === "landing" && (
@@ -3631,6 +3843,7 @@ export default function App() {
               <DashboardScreen
                 onScan={() => {
                   setActiveLobby(null);
+                  storage.remove(STORAGE_KEYS.ACTIVE_LOBBY);
                   navigate("lobby");
                 }}
                 onOpenProfile={() => navigate("profile")}
@@ -3663,6 +3876,7 @@ export default function App() {
                 onBack={goBack}
                 onLobbyCreated={(lobby) => {
                   setActiveLobby(lobby);
+                  storage.set(STORAGE_KEYS.ACTIVE_LOBBY, lobby);
                   navigate("lobby");
                 }}
               />
@@ -3670,22 +3884,55 @@ export default function App() {
             {current === "lobby" && (
               <LobbyScreen
                 initialLobby={activeLobby}
-                _onLeave={goBack}
-                onLobbyJoined={(lobby) => setActiveLobby(lobby)}
+                _onLeave={() => {
+                  storage.remove(STORAGE_KEYS.ACTIVE_LOBBY);
+                  goBack();
+                }}
+                onLobbyJoined={(lobby) => {
+                  setActiveLobby(lobby);
+                  storage.set(STORAGE_KEYS.ACTIVE_LOBBY, lobby);
+                }}
                 onStartGame={(lobby) => {
                   setActiveLobby(lobby);
                   navigate("quiz", true);
                 }}
+                onKicked={handleUserKicked}
               />
             )}
             {current === "quiz" && (
               <QuizScreen
                 lobby={activeLobby}
-                onFinish={() => navigate("dashboard")}
+                onFinish={() => {
+                  storage.remove(STORAGE_KEYS.ACTIVE_LOBBY);
+                  navigate("dashboard");
+                }}
               />
             )}
-            {current === "profile" && <ProfileScreen onBack={goBack} />}
+            {current === "profile" && (
+              <ProfileScreen
+                onBack={goBack}
+                onSignOut={() => {
+                  storage.clearUserSession();
+                  navigate("auth", true);
+                }}
+              />
+            )}
           </div>
+
+          {/* Kicked by Host Notification Banner */}
+          {kickedToast && (
+            <div className="absolute top-14 left-4 right-4 z-50 bg-[#F0F8EC] border-2 border-[#B3D59F] rounded-2xl p-3.5 shadow-2xl flex items-center gap-3 animate-fadeIn">
+              <div className="w-8 h-8 rounded-xl bg-[#FFF0F2] border border-[#FAD2D2] flex items-center justify-center text-[#D93838] shrink-0 font-extrabold text-[14px]">
+                ✕
+              </div>
+              <p
+                className="text-[13px] font-extrabold text-[#C0384E]"
+                style={{ fontFamily: "'Lexend', sans-serif" }}
+              >
+                {kickedToast}
+              </p>
+            </div>
+          )}
 
           {/* Persistent Bottom Navigation Bar */}
           {showBottomNav && (
