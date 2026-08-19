@@ -37,12 +37,50 @@ import {
   Eye, EyeOff, CheckCircle, Wifi, Camera,
   ArrowRight, Send, Clock, Star, Apple, ArrowLeft,
   Play, Pause, X, User, Mail, Edit3, Key, LogOut, Check,
-  Plus, Crown
+  Plus, Crown, Home, Boxes, Sparkles, Activity, Layers, Video
 } from "lucide-react";
 
-type Screen = "landing" | "cpr" | "onboarding" | "auth" | "dashboard" | "lobby" | "profile" | "create-lobby" | "quiz";
-const SCREENS: Screen[] = ["landing", "cpr", "onboarding", "auth", "dashboard", "lobby", "profile", "create-lobby", "quiz"];
-const LABELS = ["Landing", "CPR 3D", "Onboard", "Sign In", "Dashboard", "Lobby", "Profile", "Create Lobby", "Quiz"];
+type Screen =
+  | "landing"
+  | "cpr"
+  | "onboarding"
+  | "auth"
+  | "dashboard"
+  | "lobby"
+  | "profile"
+  | "create-lobby"
+  | "quiz"
+  | "learn"
+  | "ar-hub"
+  | "ar-try";
+const SCREENS: Screen[] = [
+  "landing",
+  "cpr",
+  "onboarding",
+  "auth",
+  "dashboard",
+  "lobby",
+  "profile",
+  "create-lobby",
+  "quiz",
+  "learn",
+  "ar-hub",
+  "ar-try",
+];
+const LABELS = [
+  "Landing",
+  "CPR 3D",
+  "Onboard",
+  "Sign In",
+  "Dashboard",
+  "Lobby",
+  "Profile",
+  "Create Lobby",
+  "Quiz",
+  "Learn",
+  "AR Practice",
+  "AI Vision",
+];
 
 // Simple SVG QR code pattern
 function QRCodeSVG({ size = 120 }: { size?: number }) {
@@ -1577,7 +1615,7 @@ function CreateLobbyScreen({
         { onConflict: "lobby_id,user_id" }
       );
 
-      onLobbyCreated(newLobby);
+      onLobbyCreated({ ...newLobby, isNewlyCreated: true });
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to create lobby.");
     } finally {
@@ -1754,7 +1792,7 @@ function LobbyScreen({
   const [participants, setParticipants] = useState<
     { userId: string; name: string; isCurrentUser: boolean; isHost: boolean }[]
   >([]);
-  const [showQRModal, setShowQRModal] = useState(Boolean(initialLobby));
+  const [showQRModal, setShowQRModal] = useState(Boolean(initialLobby?.isNewlyCreated));
   const [startingLobby, setStartingLobby] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>("");
 
@@ -2695,6 +2733,627 @@ function QuizScreen({
   );
 }
 
+// ─── Component: Bottom Navigation Bar ─────────────────────────────────
+function BottomNavBar({
+  current,
+  onNavigate,
+}: {
+  current: Screen;
+  onNavigate: (s: Screen) => void;
+}) {
+  const tabs: {
+    id: Screen;
+    label: string;
+    icon: React.ComponentType<{ size?: number; className?: string }>;
+  }[] = [
+    { id: "dashboard", label: "Home", icon: Home },
+    { id: "learn", label: "Learn", icon: BookOpen },
+    { id: "ar-hub", label: "AR Practice", icon: Boxes },
+  ];
+
+  return (
+    <div className="absolute bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#E8EDE6] px-4 py-2 flex items-center justify-around shadow-lg">
+      {tabs.map((tab) => {
+        const Icon = tab.icon;
+        const isActive = current === tab.id;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => onNavigate(tab.id)}
+            className={`flex flex-col items-center justify-center py-1.5 px-5 rounded-2xl transition-all duration-150 ${
+              isActive
+                ? "bg-[#F0F8EC] text-[#1A3312] font-extrabold shadow-sm scale-105"
+                : "text-[#8A9C87] hover:text-[#1A2816] hover:bg-[#F7FBF5]"
+            }`}
+          >
+            <Icon
+              size={20}
+              className={isActive ? "text-[#3D6B2A]" : "text-[#8A9C87]"}
+            />
+            <span
+              className="text-[11px] mt-0.5 tracking-tight"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              {tab.label}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Screen: Learn & Curriculum ───────────────────────────────────────
+function LearnScreen({ onExploreCPR }: { onExploreCPR: () => void }) {
+  const modules = [
+    {
+      id: "cpr",
+      title: "Basic Life Support (BLS) & CPR",
+      desc: "Chest compression mechanics, rescue breaths, automated external defibrillator (AED).",
+      icon: Heart,
+      tag: "ESSENTIAL",
+      xp: "+120 XP",
+      time: "8 min",
+      status: "Available",
+    },
+    {
+      id: "choking",
+      title: "Choking & Airway Obstruction",
+      desc: "Recognizing universal distress signal, back blows, and Heimlich maneuver.",
+      icon: Shield,
+      tag: "HIGH PRIORITY",
+      xp: "+100 XP",
+      time: "6 min",
+      status: "Available",
+    },
+    {
+      id: "hemorrhage",
+      title: "Severe Bleeding & Tourniquets",
+      desc: "Direct wound pressure, wound packing, and commercial tourniquet application.",
+      icon: Activity,
+      tag: "TRAUMA",
+      xp: "+150 XP",
+      time: "10 min",
+      status: "Available",
+    },
+    {
+      id: "burns",
+      title: "Burns & Thermal Injuries",
+      desc: "Assessing 1st to 3rd degree burns, cooling protocols, and dressing rules.",
+      icon: Sparkles,
+      tag: "FIRST AID",
+      xp: "+80 XP",
+      time: "5 min",
+      status: "Coming Soon",
+    },
+  ];
+
+  return (
+    <div className="flex flex-col px-5 py-5 pb-24" style={{ minHeight: 740 }}>
+      {/* Top Header */}
+      <div className="mb-5">
+        <span
+          className="text-[11px] font-bold text-[#3D6B2A] uppercase tracking-wider block"
+          style={{ fontFamily: "'Lexend', sans-serif" }}
+        >
+          First Aid Curriculum
+        </span>
+        <h2
+          className="text-[22px] font-extrabold text-[#1A2816]"
+          style={{ fontFamily: "'Lexend', sans-serif" }}
+        >
+          Learn & Practice
+        </h2>
+        <p
+          className="text-[13px] text-[#6B7C6B] mt-0.5"
+          style={{ fontFamily: "'Nunito', sans-serif" }}
+        >
+          Interactive medical education modules and clinical flashcards
+        </p>
+      </div>
+
+      {/* Overview Progress Card */}
+      <div className="bg-[#F0F8EC] border border-[#D4ECC5] rounded-3xl p-5 mb-5 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p
+              className="text-[15px] font-extrabold text-[#1A2816]"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              Core Curriculum Progress
+            </p>
+            <p className="text-[12px] text-[#6B7C6B]">2 of 4 modules unlocked</p>
+          </div>
+          <div className="w-10 h-10 rounded-2xl bg-[#B3D59F] flex items-center justify-center text-[#1A3312]">
+            <BookOpen size={20} />
+          </div>
+        </div>
+        <div className="w-full h-2 bg-[#D8E8D0] rounded-full overflow-hidden">
+          <div className="w-1/2 h-full bg-[#3D6B2A] rounded-full" />
+        </div>
+      </div>
+
+      {/* Modules List */}
+      <div className="space-y-3.5 flex-1">
+        {modules.map((mod) => {
+          const Icon = mod.icon;
+          return (
+            <div
+              key={mod.id}
+              onClick={() => {
+                if (mod.id === "cpr") onExploreCPR();
+              }}
+              className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                mod.status === "Available"
+                  ? "bg-white border-[#E8EDE6] hover:border-[#B3D59F] hover:bg-[#F7FBF5] shadow-sm active:scale-[0.99]"
+                  : "bg-[#FAFCF9] border-[#E8EDE6] opacity-75"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="w-10 h-10 rounded-xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center text-[#3D6B2A] shrink-0">
+                  <Icon size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="text-[9px] font-extrabold text-[#3D6B2A] bg-[#E8F5E2] border border-[#B3D59F] px-1.5 py-0.5 rounded uppercase"
+                      style={{ fontFamily: "'Lexend', sans-serif" }}
+                    >
+                      {mod.tag}
+                    </span>
+                    <span className="text-[11px] text-[#A0B09A] ml-auto font-semibold">
+                      {mod.time}
+                    </span>
+                  </div>
+                  <h3
+                    className="text-[15px] font-bold text-[#1A2816] mt-1 truncate"
+                    style={{ fontFamily: "'Lexend', sans-serif" }}
+                  >
+                    {mod.title}
+                  </h3>
+                </div>
+              </div>
+
+              <p
+                className="text-[12px] text-[#6B7C6B] line-clamp-2 mb-3"
+                style={{ fontFamily: "'Nunito', sans-serif" }}
+              >
+                {mod.desc}
+              </p>
+
+              <div className="flex items-center justify-between pt-2 border-t border-[#F0F5EE]">
+                <span
+                  className="text-[11px] font-bold text-[#3D6B2A]"
+                  style={{ fontFamily: "'Lexend', sans-serif" }}
+                >
+                  {mod.xp}
+                </span>
+                <span
+                  className={`text-[11px] font-bold px-2.5 py-0.5 rounded-lg ${
+                    mod.status === "Available"
+                      ? "bg-[#B3D59F] text-[#1A3312]"
+                      : "bg-[#E8EDE6] text-[#6B7C6B]"
+                  }`}
+                  style={{ fontFamily: "'Lexend', sans-serif" }}
+                >
+                  {mod.status === "Available" ? "Start Lesson →" : "Locked"}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Screen: AR Movements Hub ─────────────────────────────────────────
+function ARHubScreen({
+  onSelectMovement,
+}: {
+  onSelectMovement: (movement: any, mode: "learn" | "try") => void;
+}) {
+  const [activeMovementModal, setActiveMovementModal] = useState<any | null>(
+    null
+  );
+
+  const movements = [
+    {
+      id: "cpr",
+      title: "Cardiopulmonary Resuscitation (CPR)",
+      subtitle: "Chest compressions & rhythm control",
+      category: "Basic Life Support",
+      stats: "100-120 BPM · 5-6 cm Depth",
+      difficulty: "High Priority",
+      icon: Heart,
+      has3D: true,
+      details:
+        "Perform rhythmic chest compressions directly on the center of the chest. Maintain locked elbows and vertical shoulder alignment to generate effective blood flow.",
+    },
+    {
+      id: "heimlich",
+      title: "Heimlich Maneuver",
+      subtitle: "Abdominal thrusts for airway obstruction",
+      category: "Choking Emergency",
+      stats: "Upward & Inward Thrusts",
+      difficulty: "Essential",
+      icon: Shield,
+      has3D: false,
+      details:
+        "Stand behind the patient, place a fist above the navel, and deliver quick, inward-and-upward abdominal thrusts to dislodge the foreign object.",
+    },
+    {
+      id: "recovery",
+      title: "Recovery Position (PLS)",
+      subtitle: "Lateral alignment for breathing victim",
+      category: "Patient Positioning",
+      stats: "Clear Airway & Stable Base",
+      difficulty: "Core Skill",
+      icon: Activity,
+      has3D: false,
+      details:
+        "Roll an unresponsive breathing patient onto their side to keep their airway open and prevent aspiration of fluids.",
+    },
+    {
+      id: "tourniquet",
+      title: "Pressure Dressing & Bandaging",
+      subtitle: "Direct wound compression technique",
+      category: "Trauma & Hemorrhage",
+      stats: "Continuous Direct Force",
+      difficulty: "Vital",
+      icon: Layers,
+      has3D: false,
+      details:
+        "Apply firm, uninterrupted pressure with both hands directly over the bleeding site using sterile gauze or a pressure dressing.",
+    },
+  ];
+
+  return (
+    <div className="flex flex-col px-5 py-5 pb-24" style={{ minHeight: 740 }}>
+      {/* Top Header */}
+      <div className="mb-5">
+        <div className="flex items-center gap-2">
+          <span
+            className="text-[11px] font-bold text-[#3D6B2A] uppercase tracking-wider block"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            AR & Computer Vision
+          </span>
+          <span className="bg-[#B3D59F] text-[#1A3312] text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
+            Interactive
+          </span>
+        </div>
+        <h2
+          className="text-[22px] font-extrabold text-[#1A2816]"
+          style={{ fontFamily: "'Lexend', sans-serif" }}
+        >
+          AR Medical Movements
+        </h2>
+        <p
+          className="text-[13px] text-[#6B7C6B] mt-0.5"
+          style={{ fontFamily: "'Nunito', sans-serif" }}
+        >
+          Learn 3D animations and analyze your own body movements with AI
+        </p>
+      </div>
+
+      {/* Feature Banner */}
+      <div className="bg-[#1A2816] text-white rounded-3xl p-5 mb-5 shadow-md relative overflow-hidden">
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-1.5">
+            <Sparkles size={16} className="text-[#B3D59F]" />
+            <span
+              className="text-[11px] font-bold text-[#B3D59F] uppercase tracking-wider"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              AI Movement Analysis
+            </span>
+          </div>
+          <h3
+            className="text-[16px] font-extrabold mb-1"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            Real-Time Posture Feedback
+          </h3>
+          <p className="text-[12px] text-white/80 leading-relaxed max-w-[260px]">
+            Select any medical procedure below to see it in 3D or practice with your camera.
+          </p>
+        </div>
+        <div className="absolute right-3 -bottom-2 text-[#B3D59F]/15">
+          <Boxes size={110} />
+        </div>
+      </div>
+
+      {/* Movements Grid */}
+      <div className="space-y-3.5 flex-1">
+        {movements.map((move) => {
+          const Icon = move.icon;
+          return (
+            <div
+              key={move.id}
+              onClick={() => setActiveMovementModal(move)}
+              className="bg-white border border-[#E8EDE6] hover:border-[#B3D59F] hover:bg-[#F7FBF5] p-4 rounded-2xl shadow-sm cursor-pointer transition-all active:scale-[0.99]"
+            >
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="w-11 h-11 rounded-2xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center text-[#3D6B2A] shrink-0">
+                  <Icon size={22} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="text-[9px] font-extrabold text-[#3D6B2A] bg-[#E8F5E2] border border-[#B3D59F] px-1.5 py-0.5 rounded uppercase"
+                      style={{ fontFamily: "'Lexend', sans-serif" }}
+                    >
+                      {move.category}
+                    </span>
+                    <span className="text-[10px] text-[#A0B09A] font-bold ml-auto uppercase">
+                      {move.difficulty}
+                    </span>
+                  </div>
+                  <h3
+                    className="text-[15px] font-bold text-[#1A2816] mt-1"
+                    style={{ fontFamily: "'Lexend', sans-serif" }}
+                  >
+                    {move.title}
+                  </h3>
+                </div>
+              </div>
+
+              <p
+                className="text-[12px] text-[#6B7C6B] line-clamp-1 mb-3"
+                style={{ fontFamily: "'Nunito', sans-serif" }}
+              >
+                {move.subtitle}
+              </p>
+
+              <div className="flex items-center justify-between pt-2 border-t border-[#F0F5EE]">
+                <span
+                  className="text-[11px] font-semibold text-[#6B7C6B] flex items-center gap-1"
+                  style={{ fontFamily: "'Nunito', sans-serif" }}
+                >
+                  <Activity size={12} className="text-[#3D6B2A]" /> {move.stats}
+                </span>
+                <span
+                  className="text-[11px] font-extrabold text-[#3D6B2A] bg-[#F0F8EC] border border-[#D4ECC5] px-2.5 py-1 rounded-xl"
+                  style={{ fontFamily: "'Lexend', sans-serif" }}
+                >
+                  Options →
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Movement Action Modal */}
+      {activeMovementModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div
+            className="w-full max-w-[350px] bg-white rounded-3xl p-6 shadow-2xl border border-[#E8EDE6] relative animate-fadeIn"
+            style={{ fontFamily: "'Nunito', sans-serif" }}
+          >
+            <button
+              onClick={() => setActiveMovementModal(null)}
+              className="absolute top-4 right-4 text-[#A0B09A] hover:text-[#1A2816] p-1.5 rounded-full hover:bg-[#F0F5EE]"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="w-12 h-12 rounded-2xl bg-[#F0F8EC] border border-[#D4ECC5] text-[#3D6B2A] flex items-center justify-center mb-3">
+              <Boxes size={24} />
+            </div>
+
+            <span
+              className="text-[10px] font-extrabold text-[#3D6B2A] uppercase tracking-wider block mb-0.5"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              {activeMovementModal.category}
+            </span>
+            <h3
+              className="text-[18px] font-extrabold text-[#1A2816] mb-1.5"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              {activeMovementModal.title}
+            </h3>
+            <p className="text-[12px] text-[#6B7C6B] mb-5 leading-relaxed">
+              {activeMovementModal.details}
+            </p>
+
+            {/* Action Choice Buttons */}
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  const m = activeMovementModal;
+                  setActiveMovementModal(null);
+                  onSelectMovement(m, "learn");
+                }}
+                className="w-full p-4 rounded-2xl bg-[#F0F8EC] border-2 border-[#B3D59F] text-[#1A3312] flex items-center justify-between hover:bg-[#E2F0DC] active:scale-[0.98] transition-all shadow-sm"
+              >
+                <div className="flex items-center gap-3 text-left">
+                  <div className="w-10 h-10 rounded-xl bg-[#B3D59F] flex items-center justify-center text-[#1A3312] shrink-0 shadow-sm">
+                    <Boxes size={20} />
+                  </div>
+                  <div>
+                    <p
+                      className="text-[14px] font-extrabold"
+                      style={{ fontFamily: "'Lexend', sans-serif" }}
+                    >
+                      1. Learn (3D & AR Demo)
+                    </p>
+                    <p className="text-[11px] text-[#6B7C6B]">
+                      Inspect animated 3D model & step guide
+                    </p>
+                  </div>
+                </div>
+                <ArrowRight size={16} className="text-[#3D6B2A]" />
+              </button>
+
+              <button
+                onClick={() => {
+                  const m = activeMovementModal;
+                  setActiveMovementModal(null);
+                  onSelectMovement(m, "try");
+                }}
+                className="w-full p-4 rounded-2xl bg-white border border-[#D8E8D0] text-[#1A2816] flex items-center justify-between hover:bg-[#F7FBF5] active:scale-[0.98] transition-all shadow-sm"
+              >
+                <div className="flex items-center gap-3 text-left">
+                  <div className="w-10 h-10 rounded-xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center text-[#3D6B2A] shrink-0">
+                    <Camera size={20} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <p
+                        className="text-[14px] font-extrabold"
+                        style={{ fontFamily: "'Lexend', sans-serif" }}
+                      >
+                        2. Try it Out
+                      </p>
+                      <span className="text-[8px] font-extrabold bg-[#B3D59F] text-[#1A3312] px-1.5 py-0.5 rounded uppercase">
+                        AI
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#6B7C6B]">
+                      MediaPipe camera posture analysis
+                    </p>
+                  </div>
+                </div>
+                <ArrowRight size={16} className="text-[#A0B09A]" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Screen: AR Try (Camera & Body Vision) ─────────────────────────────
+function ARTryScreen({
+  movement,
+  onBack,
+}: {
+  movement: any;
+  onBack: () => void;
+}) {
+  const webcamRef = useRef<Webcam>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  return (
+    <div className="flex flex-col px-5 py-5" style={{ minHeight: 740 }}>
+      {/* Top Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <span
+            className="text-[11px] font-bold text-[#3D6B2A] uppercase tracking-wider block"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            AI Movement Analysis
+          </span>
+          <h2
+            className="text-[18px] font-extrabold text-[#1A2816]"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            {movement?.title || "Movement Tracking"}
+          </h2>
+        </div>
+        <span className="bg-[#B3D59F] text-[#1A3312] text-[10px] font-bold px-2.5 py-1 rounded-full uppercase">
+          MediaPipe Live
+        </span>
+      </div>
+
+      {/* Camera Viewfinder */}
+      <div
+        className="bg-[#1A2816] rounded-3xl overflow-hidden mb-4 relative mx-auto w-full shadow-lg"
+        style={{ aspectRatio: "4/5", maxWidth: 330 }}
+      >
+        <Webcam
+          audio={false}
+          ref={webcamRef}
+          videoConstraints={{ facingMode: "user" }}
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+
+        {/* Corner brackets */}
+        {([
+          ["top-4 left-4", "rounded-tl-xl border-t-2 border-l-2 border-r-0 border-b-0"],
+          ["top-4 right-4", "rounded-tr-xl border-t-2 border-r-2 border-l-0 border-b-0"],
+          ["bottom-4 left-4", "rounded-bl-xl border-b-2 border-l-2 border-r-0 border-t-0"],
+          ["bottom-4 right-4", "rounded-br-xl border-b-2 border-r-2 border-l-0 border-t-0"],
+        ] as [string, string][]).map(([pos, border], i) => (
+          <div
+            key={i}
+            className={`absolute ${pos} w-9 h-9 ${border} border-[#B3D59F] z-10`}
+          />
+        ))}
+
+        {/* Calibration Box / Posture Guide Skeleton Outline */}
+        <div className="absolute inset-10 border border-dashed border-[#B3D59F]/50 rounded-2xl flex flex-col items-center justify-center z-10 pointer-events-none">
+          <div className="w-16 h-16 rounded-full border border-[#B3D59F]/60 mb-2" />
+          <div className="w-28 h-20 border border-[#B3D59F]/60 rounded-xl" />
+          <span className="text-[10px] text-[#B3D59F] font-bold mt-2 bg-black/50 px-2 py-0.5 rounded-full">
+            Align torso & arms here
+          </span>
+        </div>
+
+        {/* Status tag */}
+        <div className="absolute bottom-4 left-0 right-0 flex justify-center z-10">
+          <span
+            className="bg-black/65 text-white text-[11px] font-bold px-3.5 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            <div className="w-2 h-2 rounded-full bg-[#B3D59F] animate-ping" />
+            {isAnalyzing
+              ? "Tracking Posture · 30 FPS"
+              : "Camera Initialized & Calibrated"}
+          </span>
+        </div>
+      </div>
+
+      {/* Feedback Card */}
+      <div className="bg-[#F7FBF5] border border-[#D4ECC5] rounded-2xl p-4 mb-4">
+        <div className="flex items-center gap-2 mb-1.5">
+          <Activity size={16} className="text-[#3D6B2A]" />
+          <p
+            className="text-[13px] font-extrabold text-[#1A2816]"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            Live Posture Guidelines
+          </p>
+        </div>
+        <ul
+          className="text-[12px] text-[#6B7C6B] space-y-1 list-disc pl-4"
+          style={{ fontFamily: "'Nunito', sans-serif" }}
+        >
+          <li>Keep arms straight with locked elbows at 90° angle.</li>
+          <li>Position body directly above the patient.</li>
+          <li>Maintain target compression rhythm of 100-120 per minute.</li>
+        </ul>
+      </div>
+
+      {/* Actions */}
+      <div className="space-y-2 mt-auto">
+        <button
+          onClick={() => setIsAnalyzing(!isAnalyzing)}
+          className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[15px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+          style={{ fontFamily: "'Lexend', sans-serif" }}
+        >
+          {isAnalyzing ? "Stop Analysis" : "Start Live Movement Tracking"}
+        </button>
+
+        <button
+          onClick={onBack}
+          className="w-full py-2.5 text-[#6B7C6B] font-bold text-[13px] hover:text-[#1A2816]"
+          style={{ fontFamily: "'Nunito', sans-serif" }}
+        >
+          Back to AR Movements
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Reset Password Modal ─────────────────────────────────────────────
 function ResetPasswordModal({
   isOpen,
@@ -2845,7 +3504,11 @@ export default function App() {
   const [historyStack, setHistoryStack] = useState<Screen[]>(["landing"]);
   const [showResetModal, setShowResetModal] = useState(false);
   const [activeLobby, setActiveLobby] = useState<any>(null);
+  const [selectedMovement, setSelectedMovement] = useState<any>(null);
   const current = historyStack[historyStack.length - 1];
+
+  const showBottomNav =
+    current === "dashboard" || current === "learn" || current === "ar-hub";
 
   useEffect(() => {
     // Set initial state in history so we can detect back navigation to it
@@ -2855,14 +3518,16 @@ export default function App() {
       if (e.state && typeof e.state.index === "number") {
         const newIndex = e.state.index;
         // Keep the stack aligned with the history index
-        setHistoryStack(prev => prev.slice(0, newIndex + 1));
+        setHistoryStack((prev) => prev.slice(0, newIndex + 1));
       }
     };
 
     window.addEventListener("popstate", handlePopState);
 
     // Listen for password recovery from Supabase email link
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") {
         setShowResetModal(true);
       }
@@ -2878,10 +3543,16 @@ export default function App() {
     };
   }, []);
 
-  const navigate = (s: Screen) => {
-    const newIndex = historyStack.length;
-    window.history.pushState({ screen: s, index: newIndex }, "", `?screen=${s}`);
-    setHistoryStack(prev => [...prev, s]);
+  const navigate = (s: Screen, replace = false) => {
+    if (replace) {
+      const index = Math.max(0, historyStack.length - 1);
+      window.history.replaceState({ screen: s, index }, "", `?screen=${s}`);
+      setHistoryStack((prev) => [...prev.slice(0, -1), s]);
+    } else {
+      const newIndex = historyStack.length;
+      window.history.pushState({ screen: s, index: newIndex }, "", `?screen=${s}`);
+      setHistoryStack((prev) => [...prev, s]);
+    }
   };
 
   const goBack = () => {
@@ -2908,7 +3579,6 @@ export default function App() {
       >
         {/* The "Invisible Frame" that fixes the layout and scrolling */}
         <div className="w-full sm:max-w-[390px] h-[100dvh] sm:h-[820px] bg-white sm:rounded-[48px] sm:shadow-2xl overflow-hidden flex flex-col relative">
-
           {/* Back Button Header */}
           {historyStack.length > 1 && (
             <div className="w-full px-5 pt-5 pb-1 flex items-center justify-between z-10 shrink-0 bg-transparent gap-2">
@@ -2924,21 +3594,39 @@ export default function App() {
                 className="flex-1 text-center text-[10px] sm:text-[11px] font-extrabold text-[#1A3312] leading-tight uppercase tracking-wide"
                 style={{ fontFamily: "'Lexend', sans-serif" }}
               >
-                Asociatia pentru Sustinerea<br />Educatiei Medicale
+                Asociatia pentru Sustinerea
+                <br />
+                Educatiei Medicale
               </span>
 
               <div className="w-10 h-10 flex items-center justify-center shrink-0 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-[#E8EDE6] p-0.5 overflow-hidden">
-                <img src="/logo_asem.png" alt="ASEM Logo" className="w-full h-full object-contain" />
+                <img
+                  src="/logo_asem.png"
+                  alt="ASEM Logo"
+                  className="w-full h-full object-contain"
+                />
               </div>
             </div>
           )}
 
           {/* This inner div is what actually enables the scrolling! */}
-          <div className="flex-1 overflow-y-auto scrollbar-none relative">
-            {current === "landing" && <LandingScreen onNext={() => navigate("cpr")} />}
-            {current === "cpr" && <CPRScreen onNext={() => navigate("onboarding")} />}
-            {current === "onboarding" && <OnboardingScreen onNext={() => navigate("auth")} />}
-            {current === "auth" && <AuthScreen onNext={() => navigate("dashboard")} />}
+          <div
+            className={`flex-1 overflow-y-auto scrollbar-none relative ${
+              showBottomNav ? "pb-16" : ""
+            }`}
+          >
+            {current === "landing" && (
+              <LandingScreen onNext={() => navigate("cpr")} />
+            )}
+            {current === "cpr" && (
+              <CPRScreen onNext={() => navigate("onboarding")} />
+            )}
+            {current === "onboarding" && (
+              <OnboardingScreen onNext={() => navigate("auth")} />
+            )}
+            {current === "auth" && (
+              <AuthScreen onNext={() => navigate("dashboard")} />
+            )}
             {current === "dashboard" && (
               <DashboardScreen
                 onScan={() => {
@@ -2947,6 +3635,27 @@ export default function App() {
                 }}
                 onOpenProfile={() => navigate("profile")}
                 onCreateLobby={() => navigate("create-lobby")}
+              />
+            )}
+            {current === "learn" && (
+              <LearnScreen onExploreCPR={() => navigate("cpr")} />
+            )}
+            {current === "ar-hub" && (
+              <ARHubScreen
+                onSelectMovement={(move, mode) => {
+                  setSelectedMovement(move);
+                  if (mode === "learn") {
+                    navigate("cpr");
+                  } else {
+                    navigate("ar-try");
+                  }
+                }}
+              />
+            )}
+            {current === "ar-try" && (
+              <ARTryScreen
+                movement={selectedMovement}
+                onBack={goBack}
               />
             )}
             {current === "create-lobby" && (
@@ -2965,7 +3674,7 @@ export default function App() {
                 onLobbyJoined={(lobby) => setActiveLobby(lobby)}
                 onStartGame={(lobby) => {
                   setActiveLobby(lobby);
-                  navigate("quiz");
+                  navigate("quiz", true);
                 }}
               />
             )}
@@ -2978,6 +3687,17 @@ export default function App() {
             {current === "profile" && <ProfileScreen onBack={goBack} />}
           </div>
 
+          {/* Persistent Bottom Navigation Bar */}
+          {showBottomNav && (
+            <BottomNavBar
+              current={current}
+              onNavigate={(tab) => {
+                if (tab !== current) {
+                  navigate(tab);
+                }
+              }}
+            />
+          )}
         </div>
       </div>
 
