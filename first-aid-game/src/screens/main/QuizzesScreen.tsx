@@ -1,97 +1,67 @@
 import React from "react";
-import { Heart, Shield, Activity, Sparkles, BookOpen } from "lucide-react";
+import { Heart, Shield, Activity, BookOpen, HelpCircle } from "lucide-react";
 
-interface LearnScreenProps {
+interface QuizzesScreenProps {
   onExploreCPR: () => void;
+  onSelectQuiz: (category: string) => void;
 }
 
-export function LearnScreen({ onExploreCPR }: LearnScreenProps) {
+export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps) {
   const modules = [
     {
-      id: "cpr",
-      title: "Basic Life Support (BLS) & CPR",
-      desc: "Chest compression mechanics, rescue breaths, automated external defibrillator (AED).",
+      id: "bls",
+      title: "Basic Life Support & CPR",
+      desc: "Chest compression mechanics, rescue breaths, and AED usage.",
       icon: Heart,
-      tag: "ESSENTIAL",
-      xp: "+120 XP",
-      time: "8 min",
+      tag: "QUIZ",
+      xp: "Up to +200 XP",
+      time: "5-10 min",
       status: "Available",
     },
     {
       id: "choking",
       title: "Choking & Airway Obstruction",
-      desc: "Recognizing universal distress signal, back blows, and Heimlich maneuver.",
+      desc: "Recognizing distress, back blows, and abdominal thrusts.",
       icon: Shield,
-      tag: "HIGH PRIORITY",
-      xp: "+100 XP",
-      time: "6 min",
+      tag: "QUIZ",
+      xp: "Up to +160 XP",
+      time: "5-8 min",
       status: "Available",
     },
     {
-      id: "hemorrhage",
-      title: "Severe Bleeding & Tourniquets",
-      desc: "Direct wound pressure, wound packing, and commercial tourniquet application.",
+      id: "trauma",
+      title: "Severe Bleeding & Trauma",
+      desc: "Direct wound pressure, wound packing, and tourniquets.",
       icon: Activity,
-      tag: "TRAUMA",
-      xp: "+150 XP",
-      time: "10 min",
+      tag: "QUIZ",
+      xp: "Up to +160 XP",
+      time: "5-8 min",
       status: "Available",
-    },
-    {
-      id: "burns",
-      title: "Burns & Thermal Injuries",
-      desc: "Assessing 1st to 3rd degree burns, cooling protocols, and dressing rules.",
-      icon: Sparkles,
-      tag: "FIRST AID",
-      xp: "+80 XP",
-      time: "5 min",
-      status: "Coming Soon",
     },
   ];
 
   return (
-    <div className="flex flex-col px-5 py-5 pb-24" style={{ minHeight: 740 }}>
+    <div className="flex flex-col px-5 py-5 h-full">
       {/* Top Header */}
       <div className="mb-5">
         <span
           className="text-[11px] font-bold text-[#3D6B2A] uppercase tracking-wider block"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          First Aid Curriculum
+          Test Your Knowledge
         </span>
         <h2
           className="text-[22px] font-extrabold text-[#1A2816]"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          Learn & Practice
+          Quizzes & Challenges
         </h2>
         <p
           className="text-[13px] text-[#6B7C6B] mt-0.5"
           style={{ fontFamily: "'Nunito', sans-serif" }}
         >
-          Interactive medical education modules and clinical flashcards
+          Earn XP by completing time-based clinical quizzes.
         </p>
-      </div>
-
-      {/* Overview Progress Card */}
-      <div className="bg-[#F0F8EC] border border-[#D4ECC5] rounded-3xl p-5 mb-5 shadow-sm">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <p
-              className="text-[15px] font-extrabold text-[#1A2816]"
-              style={{ fontFamily: "'Lexend', sans-serif" }}
-            >
-              Core Curriculum Progress
-            </p>
-            <p className="text-[12px] text-[#6B7C6B]">2 of 4 modules unlocked</p>
-          </div>
-          <div className="w-10 h-10 rounded-2xl bg-[#B3D59F] flex items-center justify-center text-[#1A3312]">
-            <BookOpen size={20} />
-          </div>
-        </div>
-        <div className="w-full h-2 bg-[#D8E8D0] rounded-full overflow-hidden">
-          <div className="w-1/2 h-full bg-[#3D6B2A] rounded-full" />
-        </div>
       </div>
 
       {/* Modules List */}
@@ -102,7 +72,9 @@ export function LearnScreen({ onExploreCPR }: LearnScreenProps) {
             <div
               key={mod.id}
               onClick={() => {
-                if (mod.id === "cpr") onExploreCPR();
+                if (mod.status === "Available") {
+                  onSelectQuiz(mod.id);
+                }
               }}
               className={`p-4 rounded-2xl border transition-all cursor-pointer ${
                 mod.status === "Available"
@@ -150,14 +122,20 @@ export function LearnScreen({ onExploreCPR }: LearnScreenProps) {
                   {mod.xp}
                 </span>
                 <span
-                  className={`text-[11px] font-bold px-2.5 py-0.5 rounded-lg ${
+                  className={`text-[11px] font-bold px-2.5 py-0.5 rounded-lg flex items-center gap-1 ${
                     mod.status === "Available"
                       ? "bg-[#B3D59F] text-[#1A3312]"
                       : "bg-[#E8EDE6] text-[#6B7C6B]"
                   }`}
                   style={{ fontFamily: "'Lexend', sans-serif" }}
                 >
-                  {mod.status === "Available" ? "Start Lesson →" : "Locked"}
+                  {mod.status === "Available" ? (
+                    <>
+                      <HelpCircle size={14} /> Start Quiz
+                    </>
+                  ) : (
+                    "Locked"
+                  )}
                 </span>
               </div>
             </div>

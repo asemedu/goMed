@@ -1,5 +1,5 @@
 import React from "react";
-import { Home, BookOpen, Boxes } from "lucide-react";
+import { Home, BookOpen, Boxes, HelpCircle } from "lucide-react";
 import { Screen } from "../../types";
 
 interface BottomNavBarProps {
@@ -14,7 +14,7 @@ export function BottomNavBar({ current, onNavigate }: BottomNavBarProps) {
     icon: React.ComponentType<{ size?: number; className?: string }>;
   }[] = [
     { id: "dashboard", label: "Home", icon: Home },
-    { id: "learn", label: "Learn", icon: BookOpen },
+    { id: "quizzes", label: "Quizzes", icon: HelpCircle },
     { id: "ar-hub", label: "AR Practice", icon: Boxes },
   ];
 

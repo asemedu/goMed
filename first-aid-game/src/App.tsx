@@ -14,7 +14,8 @@ import { CPRScreen } from "./screens/ar/CPRScreen";
 import { OnboardingScreen } from "./screens/auth/OnboardingScreen";
 import { AuthScreen } from "./screens/auth/AuthScreen";
 import { DashboardScreen } from "./screens/main/DashboardScreen";
-import { LearnScreen } from "./screens/main/LearnScreen";
+import { QuizzesScreen } from "./screens/main/QuizzesScreen";
+import { SinglePlayerQuizScreen } from "./screens/quiz/SinglePlayerQuizScreen";
 import { ARHubScreen } from "./screens/ar/ARHubScreen";
 import { ARTryScreen } from "./screens/ar/ARTryScreen";
 import { CreateLobbyScreen } from "./screens/lobby/CreateLobbyScreen";
@@ -24,16 +25,17 @@ import { ProfileScreen } from "./screens/main/ProfileScreen";
 import { CPRPracticeScreen } from "./screens/cpr/CPRPracticeScreen";
 
 export default function App() {
+  const [selectedQuizCategory, setSelectedQuizCategory] = useState<string>("bls");
   const [historyStack, setHistoryStack] = useState<Screen[]>(() => {
     // Check if user has an active cached profile and saved screen
-    const cachedProfile = storage.get(STORAGE_KEYS.PROFILE, null);
+      const cachedProfile = storage.get(STORAGE_KEYS.PROFILE, null);
     const cachedScreen = storage.get<Screen>(
       STORAGE_KEYS.LAST_SCREEN,
       "dashboard"
     );
     if (
       cachedProfile &&
-      ["dashboard", "learn", "ar-hub", "profile"].includes(cachedScreen)
+      ["dashboard", "quizzes", "ar-hub", "profile"].includes(cachedScreen)
     ) {
       return [cachedScreen];
     }
@@ -73,7 +75,7 @@ export default function App() {
   };
 
   const showBottomNav =
-    current === "dashboard" || current === "learn" || current === "ar-hub";
+    current === "dashboard" || current === "quizzes" || current === "ar-hub";
 
   useEffect(() => {
     // Check live Supabase session and hydrate state
@@ -85,7 +87,7 @@ export default function App() {
         );
         const targetScreen = [
           "dashboard",
-          "learn",
+          "quizzes",
           "ar-hub",
           "profile",
         ].includes(lastScreen)
@@ -104,7 +106,7 @@ export default function App() {
           if (
             [
               "dashboard",
-              "learn",
+              "quizzes",
               "ar-hub",
               "profile",
               "quiz",
@@ -153,7 +155,7 @@ export default function App() {
   }, []);
 
   const navigate = (s: Screen, replace = false) => {
-    if (["dashboard", "learn", "ar-hub"].includes(s)) {
+    if (["dashboard", "quizzes", "ar-hub"].includes(s)) {
       storage.set(STORAGE_KEYS.LAST_SCREEN, s);
     }
 
@@ -257,8 +259,20 @@ export default function App() {
                 onStartCPRPractice={() => navigate("cpr-practice")}
               />
             )}
-            {current === "learn" && (
-              <LearnScreen onExploreCPR={() => navigate("cpr")} />
+            {current === "quizzes" && (
+              <QuizzesScreen
+                onExploreCPR={() => navigate("cpr")}
+                onSelectQuiz={(category) => {
+                  setSelectedQuizCategory(category);
+                  navigate("single-player-quiz");
+                }}
+              />
+            )}
+            {current === "single-player-quiz" && (
+              <SinglePlayerQuizScreen
+                category={selectedQuizCategory}
+                onFinish={() => navigate("quizzes", true)}
+              />
             )}
             {current === "ar-hub" && (
               <ARHubScreen

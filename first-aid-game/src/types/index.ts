@@ -9,7 +9,8 @@ export type Screen =
   | "profile"
   | "create-lobby"
   | "quiz"
-  | "learn"
+  | "quizzes"
+  | "single-player-quiz"
   | "ar-hub"
   | "ar-try";
 
