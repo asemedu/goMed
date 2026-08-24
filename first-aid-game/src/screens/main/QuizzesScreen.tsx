@@ -41,7 +41,7 @@ export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps
   ];
 
   return (
-    <div className="flex flex-col px-5 py-5 h-full">
+    <div className="flex flex-col px-5 py-5" style={{ minHeight: 740 }}>
       {/* Top Header */}
       <div className="mb-5">
         <span

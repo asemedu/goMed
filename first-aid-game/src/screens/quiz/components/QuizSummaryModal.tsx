@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { CheckCircle, Clock, Zap, Target } from "lucide-react";
 import { supabase } from "../../../lib/supabaseClient";
 import { storage, STORAGE_KEYS } from "../../../lib/storage";
@@ -23,34 +23,28 @@ export function QuizSummaryModal({
   const avgTimeSeconds = (averageTimeMs / 1000).toFixed(1);
   const accuracy = Math.round((correctCount / totalQuestions) * 100) || 0;
 
+  const hasSynced = useRef(false);
+
   useEffect(() => {
+    if (hasSynced.current) return;
+    hasSynced.current = true;
+
     const syncXP = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          // Fetch current
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("points")
-            .eq("id", user.id)
+          // Call the new RPC function to securely update XP, streak, and activities count
+          await supabase.rpc('record_activity', { xp_earned: totalXP });
+          
+          // Re-fetch the updated profile to sync local storage accurately
+          const { data: updatedProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
             .single();
 
-          const currentPoints = profile?.points || 0;
-          const newTotal = currentPoints + totalXP;
-
-          // Update DB
-          await supabase
-            .from("profiles")
-            .update({ points: newTotal })
-            .eq("id", user.id);
-
-          // Update local cache
-          const cachedProfile = storage.get(STORAGE_KEYS.PROFILE, null);
-          if (cachedProfile) {
-            storage.set(STORAGE_KEYS.PROFILE, {
-              ...cachedProfile,
-              points: newTotal,
-            });
+          if (updatedProfile) {
+            storage.set(STORAGE_KEYS.PROFILE, updatedProfile);
           }
         }
       } catch (err) {

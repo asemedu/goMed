@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import { storage, STORAGE_KEYS, CachedProfile } from '../../../lib/storage';
 import { Trophy, Activity, ArrowRight, ShieldCheck, Timer } from 'lucide-react';
@@ -16,6 +16,7 @@ export function CPRSummaryModal({ stats, onFinish }: Props) {
   const [xpEarned, setXpEarned] = useState(0);
   const [saving, setSaving] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const hasProcessed = useRef(false);
 
   // Calculate Rhythm %
   const pacePercentage = stats.totalCompressions > 0 
@@ -28,6 +29,9 @@ export function CPRSummaryModal({ stats, onFinish }: Props) {
   useEffect(() => {
     // Trigger entrance animation
     setTimeout(() => setMounted(true), 100);
+
+    if (hasProcessed.current) return;
+    hasProcessed.current = true;
 
     const processSession = async () => {
       // XP Calculation logic
@@ -43,15 +47,19 @@ export function CPRSummaryModal({ stats, onFinish }: Props) {
       const profile = storage.get<CachedProfile | null>(STORAGE_KEYS.PROFILE, null);
       if (profile && profile.id) {
         try {
-          const newPoints = (profile.points || 0) + totalXpEarned;
+          // Call the new RPC function to securely update XP, streak, and activities count
+          await supabase.rpc('record_activity', { xp_earned: totalXpEarned });
           
-          await supabase
-            .from("profiles")
-            .update({ points: newPoints })
-            .eq("id", profile.id);
+          // Re-fetch the updated profile to sync local storage accurately
+          const { data: updatedProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', profile.id)
+            .single();
             
-          // Update local storage so the dashboard reflects the new points immediately
-          storage.set(STORAGE_KEYS.PROFILE, { ...profile, points: newPoints });
+          if (updatedProfile) {
+            storage.set(STORAGE_KEYS.PROFILE, updatedProfile);
+          }
         } catch (error) {
           console.error("Failed to sync XP:", error);
         }
