@@ -90,19 +90,19 @@ export function FramingGuideModal({ poseResult, onFramingComplete }: Props) {
   }
 
   return (
-    <div className="bg-black/70 p-6 rounded-2xl backdrop-blur-md mb-8 max-w-sm w-[90%] text-center pointer-events-auto border border-white/10 shadow-2xl transition-all">
+    <div className="bg-white/90 p-6 rounded-2xl backdrop-blur-md mb-8 max-w-sm w-[90%] text-center pointer-events-auto border border-white/50 shadow-2xl transition-all">
       <div className="mb-4 relative">
         <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center border-4 transition-colors duration-300 ${colorClass}`}>
           {icon}
         </div>
       </div>
       
-      <h2 className="text-xl font-bold mb-2 text-white">{title}</h2>
-      <p className="text-sm text-gray-300 mb-6">{description}</p>
+      <h2 className="text-xl font-bold mb-2 text-[#1A2816]">{title}</h2>
+      <p className="text-sm text-[#1A2816]/70 mb-6">{description}</p>
 
       {/* Progress Bar */}
       {phase !== 'done' && (
-        <div className="w-full bg-white/10 h-2 rounded-full mb-2 overflow-hidden">
+        <div className="w-full bg-[#E8EDE6] h-2 rounded-full mb-2 overflow-hidden">
           <div 
             className={`h-full transition-all duration-100 ease-linear ${phase === 'visibility' ? 'bg-blue-500' : 'bg-orange-500'}`}
             style={{ width: `${progress}%` }}

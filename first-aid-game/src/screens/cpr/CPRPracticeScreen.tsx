@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useCameraStream } from '../../hooks/useCameraStream';
 import { wakeLockManager } from '../../services/wakeLockManager';
-import { ChevronLeft } from 'lucide-react';
 import { Screen } from '../../types';
 import { CameraMirrorView } from './components/CameraMirrorView';
 import { FramingGuideModal } from './components/FramingGuideModal';
@@ -87,21 +86,9 @@ export function CPRPracticeScreen({ navigate }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col font-lexend relative">
-      {/* Header (Absolute position to hover over camera) */}
-      <div className="absolute top-0 left-0 right-0 z-50 p-4 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent">
-        <button 
-          onClick={() => navigate('dashboard')}
-          className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition backdrop-blur-sm"
-        >
-          <ChevronLeft className="w-6 h-6" />
-        </button>
-        <h1 className="text-lg font-bold">Live CPR Practice</h1>
-        <div className="w-10"></div> {/* Spacer */}
-      </div>
-
+    <div className="absolute inset-0 bg-black text-white flex flex-col font-lexend overflow-hidden">
       {/* Main Content Area - Camera View */}
-      <div className="flex-1 relative overflow-hidden bg-zinc-900 flex flex-col items-center justify-center">
+      <div className="flex-1 relative bg-black flex flex-col items-center justify-center">
         
         {error ? (
           <div className="p-6 bg-red-900/50 rounded-xl border border-red-500 max-w-sm text-center z-50">
