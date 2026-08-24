@@ -1,6 +1,7 @@
 export type Screen =
   | "landing"
   | "cpr"
+  | "cpr-practice"
   | "onboarding"
   | "auth"
   | "dashboard"

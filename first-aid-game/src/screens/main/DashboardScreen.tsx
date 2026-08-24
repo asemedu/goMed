@@ -16,12 +16,14 @@ interface DashboardScreenProps {
   onScan: () => void;
   onOpenProfile: () => void;
   onCreateLobby: () => void;
+  onStartCPRPractice: () => void;
 }
 
 export function DashboardScreen({
   onScan,
   onOpenProfile,
   onCreateLobby,
+  onStartCPRPractice,
 }: DashboardScreenProps) {
   const [profile, setProfile] = useState<{
     display_name?: string;
@@ -257,6 +259,33 @@ export function DashboardScreen({
               style={{ fontFamily: "'Nunito', sans-serif" }}
             >
               Host a live multiplayer session for students
+            </p>
+          </div>
+        </div>
+        <ChevronRight size={18} className="text-[#A0B09A]" />
+      </button>
+
+      {/* Live CPR Practice CTA */}
+      <button
+        onClick={onStartCPRPractice}
+        className="w-full bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center justify-between hover:bg-blue-100 active:scale-[0.98] transition-all shadow-sm mb-4"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-600">
+            <Zap size={22} strokeWidth={2.5} />
+          </div>
+          <div className="text-left">
+            <p
+              className="font-extrabold text-[#1A2816] text-[15px]"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              Live CPR Practice
+            </p>
+            <p
+              className="text-[12px] text-[#6B7C6B]"
+              style={{ fontFamily: "'Nunito', sans-serif" }}
+            >
+              Real-time AI camera feedback
             </p>
           </div>
         </div>

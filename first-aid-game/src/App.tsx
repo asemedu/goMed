@@ -21,6 +21,7 @@ import { CreateLobbyScreen } from "./screens/lobby/CreateLobbyScreen";
 import { LobbyScreen } from "./screens/lobby/LobbyScreen";
 import { QuizScreen } from "./screens/lobby/QuizScreen";
 import { ProfileScreen } from "./screens/main/ProfileScreen";
+import { CPRPracticeScreen } from "./screens/cpr/CPRPracticeScreen";
 
 export default function App() {
   const [historyStack, setHistoryStack] = useState<Screen[]>(() => {
@@ -239,6 +240,7 @@ export default function App() {
                 }}
                 onOpenProfile={() => navigate("profile")}
                 onCreateLobby={() => navigate("create-lobby")}
+                onStartCPRPractice={() => navigate("cpr-practice")}
               />
             )}
             {current === "learn" && (
@@ -261,6 +263,9 @@ export default function App() {
                 movement={selectedMovement}
                 onBack={goBack}
               />
+            )}
+            {current === "cpr-practice" && (
+              <CPRPracticeScreen navigate={navigate} />
             )}
             {current === "create-lobby" && (
               <CreateLobbyScreen
