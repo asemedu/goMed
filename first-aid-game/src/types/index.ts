@@ -1,6 +1,7 @@
 export type Screen =
   | "landing"
   | "cpr"
+  | "cpr-practice"
   | "onboarding"
   | "auth"
   | "dashboard"
@@ -8,7 +9,8 @@ export type Screen =
   | "profile"
   | "create-lobby"
   | "quiz"
-  | "learn"
+  | "quizzes"
+  | "single-player-quiz"
   | "ar-hub"
   | "ar-try";
 

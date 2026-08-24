@@ -9,6 +9,7 @@ import {
   Key,
   LogOut,
   ArrowLeft,
+  Zap,
 } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import { storage, STORAGE_KEYS } from "../../lib/storage";
@@ -25,6 +26,8 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
     email?: string;
     points?: number;
     ranking?: number;
+    activities_count?: number;
+    streak?: number;
   } | null>(() => storage.get(STORAGE_KEYS.PROFILE, null));
 
   const [isEditingName, setIsEditingName] = useState(false);
@@ -46,9 +49,17 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
         if (user) {
           const { data } = await supabase
             .from("profiles")
-            .select("display_name, points, ranking")
+            .select("display_name, points, activities_count, streak")
             .eq("id", user.id)
             .single();
+
+          let userRank = 0;
+          try {
+            const { data: rankData } = await supabase.rpc('get_user_rank');
+            if (rankData) userRank = rankData;
+          } catch (e) {
+            console.error("Failed to fetch rank", e);
+          }
 
           const loadedName =
             data?.display_name ||
@@ -59,7 +70,9 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
             username: user.email?.split("@")[0] || "alexchen",
             email: user.email || "alex.chen@example.com",
             points: data?.points ?? 0,
-            ranking: data?.ranking ?? 0,
+            ranking: userRank,
+            activities_count: data?.activities_count ?? 0,
+            streak: data?.streak ?? 0,
           };
           setProfile(newProfile);
           storage.set(STORAGE_KEYS.PROFILE, newProfile);
@@ -249,6 +262,34 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
               {rankDisplay}
+            </p>
+          </div>
+          <div className="bg-white rounded-2xl p-3 border border-[#E8EDE6] text-center">
+            <p
+              className="text-[11px] font-bold text-[#6B7C6B] uppercase tracking-wider"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              Activities
+            </p>
+            <p
+              className="text-[20px] font-extrabold text-[#1A2816] mt-0.5"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              {profile?.activities_count || 0}
+            </p>
+          </div>
+          <div className="bg-white rounded-2xl p-3 border border-[#E8EDE6] text-center">
+            <p
+              className="text-[11px] font-bold text-[#6B7C6B] uppercase tracking-wider"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              Day Streak
+            </p>
+            <p
+              className="text-[20px] font-extrabold text-[#1A2816] mt-0.5 flex items-center justify-center gap-1"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              {profile?.streak || 0} <Zap size={16} className="text-[#B3D59F]" />
             </p>
           </div>
         </div>
