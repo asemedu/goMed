@@ -87,10 +87,6 @@ export function CameraMirrorView({ videoRef, isActive, onPoseUpdate }: Props) {
       [11, 12], // Shoulders
       [11, 13], [13, 15], // Left Arm
       [12, 14], [14, 16], // Right Arm
-      [11, 23], [12, 24], // Torso (Shoulders to Hips)
-      [23, 24], // Hips
-      [23, 25], [25, 27], // Left Leg
-      [24, 26], [26, 28], // Right Leg
     ];
 
     ctx.lineWidth = 4;
@@ -113,7 +109,7 @@ export function CameraMirrorView({ videoRef, isActive, onPoseUpdate }: Props) {
 
     // Draw joints
     ctx.fillStyle = 'white';
-    [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28].forEach(i => {
+    [11, 12, 13, 14, 15, 16].forEach(i => {
       const p = landmarks[i];
       if (p && p.visibility > 0.6) {
         ctx.beginPath();

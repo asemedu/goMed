@@ -12,30 +12,38 @@ export interface CPRMetrics {
 
 class CPRMetricsCalculator {
   private emaBPM: number = 0;
-  
-  // Peak detection state
-  private lastWristY: number = 0;
+
+  // Cadence tracking state (Hysteresis)
   private isMovingDown: boolean = true;
   private peakTimestamps: number[] = [];
 
+  // To prevent micro-jitters at 30fps from counting as full compressions,
+  // we require the shoulders to travel a minimum distance.
+  private movementThreshold: number = 0.012; // ~1.5% of the camera frame height
+  private currentExtremeY: number = 0;
+
+  // Arms locked debouncer state
+  private isArmsLockedState: boolean = true;
+  private armsBentStartTime: number = 0;
+
   /**
-   * Calculate 3D angle between three points (Shoulder, Elbow, Wrist)
+   * Calculate 2D angle between three points (Shoulder, Elbow, Wrist)
    */
   private calculateAngle(a: NormalizedLandmark, b: NormalizedLandmark, c: NormalizedLandmark): number {
-    const ab = { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
-    const cb = { x: c.x - b.x, y: c.y - b.y, z: c.z - b.z };
-    
-    const dotProduct = ab.x * cb.x + ab.y * cb.y + ab.z * cb.z;
-    const magAB = Math.sqrt(ab.x * ab.x + ab.y * ab.y + ab.z * ab.z);
-    const magCB = Math.sqrt(cb.x * cb.x + cb.y * cb.y + cb.z * cb.z);
-    
+    const ab = { x: a.x - b.x, y: a.y - b.y };
+    const cb = { x: c.x - b.x, y: c.y - b.y };
+
+    const dotProduct = ab.x * cb.x + ab.y * cb.y;
+    const magAB = Math.sqrt(ab.x * ab.x + ab.y * ab.y);
+    const magCB = Math.sqrt(cb.x * cb.x + cb.y * cb.y);
+
     if (magAB === 0 || magCB === 0) return 0;
-    
+
     const cosAngle = dotProduct / (magAB * magCB);
     // Clamp to avoid NaN from floating point precision issues
     const clampedCos = Math.max(-1.0, Math.min(1.0, cosAngle));
     const angleRad = Math.acos(clampedCos);
-    
+
     return angleRad * (180.0 / Math.PI);
   }
 
@@ -47,7 +55,7 @@ class CPRMetricsCalculator {
     const leftShoulder = landmarks[11];
     const leftElbow = landmarks[13];
     const leftWrist = landmarks[15];
-    
+
     const rightShoulder = landmarks[12];
     const rightElbow = landmarks[14];
     const rightWrist = landmarks[16];
@@ -59,72 +67,97 @@ class CPRMetricsCalculator {
     if (leftShoulder.visibility > 0.6 && leftElbow.visibility > 0.6 && leftWrist.visibility > 0.6) {
       leftAngle = this.calculateAngle(leftShoulder, leftElbow, leftWrist);
     }
-    
+
     if (rightShoulder.visibility > 0.6 && rightElbow.visibility > 0.6 && rightWrist.visibility > 0.6) {
       rightAngle = this.calculateAngle(rightShoulder, rightElbow, rightWrist);
     }
 
     // A perfect lock is 180°. We allow a tolerance down to 150° before warning the user.
-    const isArmsLocked = leftAngle > 150 && rightAngle > 150;
+    // (Calculated in 2D to avoid Z-axis depth distortion when leaning).
+    const currentlyLocked = leftAngle > 150 && rightAngle > 150;
+
+    // Debouncer: Only trigger the warning if arms are bent for at least 0.5 seconds (500ms)
+    if (currentlyLocked) {
+      this.isArmsLockedState = true;
+      this.armsBentStartTime = 0;
+    } else {
+      if (this.armsBentStartTime === 0) {
+        this.armsBentStartTime = timestamp;
+      } else if (timestamp - this.armsBentStartTime >= 500) {
+        this.isArmsLockedState = false;
+      }
+    }
 
     // ---------------------------------------------------------
     // CADENCE (BPM) TRACKING
-    // Track the vertical displacement of the wrists
+    // Track the vertical displacement of the SHOULDERS instead of wrists
+    // (Wrists jiggle when pressing onto the dummy, causing noise).
     // ---------------------------------------------------------
-    let currentWristY = 0;
-    let wristCount = 0;
-    
-    if (leftWrist.visibility > 0.6) {
-      currentWristY += leftWrist.y;
-      wristCount++;
+    let currentShoulderY = 0;
+    let shoulderCount = 0;
+
+    if (leftShoulder.visibility > 0.6) {
+      currentShoulderY += leftShoulder.y;
+      shoulderCount++;
     }
-    if (rightWrist.visibility > 0.6) {
-      currentWristY += rightWrist.y;
-      wristCount++;
+    if (rightShoulder.visibility > 0.6) {
+      currentShoulderY += rightShoulder.y;
+      shoulderCount++;
     }
 
-    if (wristCount > 0) {
-      currentWristY /= wristCount;
-      
+    if (shoulderCount > 0) {
+      currentShoulderY /= shoulderCount;
+
       // Note: In image coordinates, Y=0 is the top, Y=1 is the bottom.
-      // So pushing down = Y is increasing. Releasing = Y is decreasing.
-      
-      if (currentWristY > this.lastWristY && !this.isMovingDown) {
-        this.isMovingDown = true; // Started pushing down
-      } else if (currentWristY < this.lastWristY && this.isMovingDown) {
-        // Transition: Was moving down, now moving up. This is the BOTTOM of a compression.
-        this.isMovingDown = false;
-        
-        // We register this as one beat
-        this.peakTimestamps.push(timestamp);
-        
-        // Keep a rolling window of the last 6 beats
-        if (this.peakTimestamps.length > 6) {
-          this.peakTimestamps.shift();
-        }
+      // So pushing down = Y increases. Releasing = Y decreases.
 
-        if (this.peakTimestamps.length >= 2) {
-          const dt = timestamp - this.peakTimestamps[this.peakTimestamps.length - 2];
-          // Filter out impossible noise (faster than 300 BPM or slower than 30 BPM)
-          if (dt > 200 && dt < 2000) { 
-            const instantBPM = 60000 / dt;
-            // Apply Exponential Moving Average (EMA) to smooth out erratic jumps
-            if (this.emaBPM === 0) {
-              this.emaBPM = instantBPM;
-            } else {
-              this.emaBPM = (instantBPM * 0.3) + (this.emaBPM * 0.7);
+      if (this.isMovingDown) {
+        // While moving down, keep tracking the lowest physical point (highest Y value)
+        if (currentShoulderY > this.currentExtremeY) {
+          this.currentExtremeY = currentShoulderY;
+        }
+        // If we bounce UP by more than the threshold, the push is over!
+        else if (currentShoulderY < this.currentExtremeY - this.movementThreshold) {
+          this.isMovingDown = false;
+          this.currentExtremeY = currentShoulderY; // Reset extreme for the upward journey
+
+          // --- We register this as one beat (bottom of the compression) ---
+          this.peakTimestamps.push(timestamp);
+
+          if (this.peakTimestamps.length > 6) {
+            this.peakTimestamps.shift();
+          }
+
+          if (this.peakTimestamps.length >= 2) {
+            const dt = timestamp - this.peakTimestamps[this.peakTimestamps.length - 2];
+            if (dt > 200 && dt < 2000) {
+              const instantBPM = 60000 / dt;
+              if (this.emaBPM === 0) {
+                this.emaBPM = instantBPM;
+              } else {
+                this.emaBPM = (instantBPM * 0.3) + (this.emaBPM * 0.7);
+              }
             }
           }
         }
+      } else {
+        // While moving UP (releasing), keep tracking the highest physical point (lowest Y value)
+        if (currentShoulderY < this.currentExtremeY) {
+          this.currentExtremeY = currentShoulderY;
+        }
+        // If we bounce DOWN by more than the threshold, a new push has started!
+        else if (currentShoulderY > this.currentExtremeY + this.movementThreshold) {
+          this.isMovingDown = true;
+          this.currentExtremeY = currentShoulderY; // Reset extreme for the downward journey
+        }
       }
-      this.lastWristY = currentWristY;
     }
 
     // If the user stops moving for more than 2 seconds, reset the BPM meter
     if (this.peakTimestamps.length > 0) {
       const timeSinceLastPeak = timestamp - this.peakTimestamps[this.peakTimestamps.length - 1];
       if (timeSinceLastPeak > 2000) {
-        this.emaBPM = 0; 
+        this.emaBPM = 0;
         this.peakTimestamps = [];
       }
     }
@@ -134,7 +167,7 @@ class CPRMetricsCalculator {
     return {
       leftElbowAngle: Math.round(leftAngle),
       rightElbowAngle: Math.round(rightAngle),
-      isArmsLocked,
+      isArmsLocked: this.isArmsLockedState,
       bpm,
       isGoodPace: bpm >= 100 && bpm <= 120,
       isTooFast: bpm > 120,
@@ -147,9 +180,11 @@ class CPRMetricsCalculator {
    */
   reset() {
     this.emaBPM = 0;
-    this.lastWristY = 0;
+    this.currentExtremeY = 0;
     this.isMovingDown = true;
     this.peakTimestamps = [];
+    this.isArmsLockedState = true;
+    this.armsBentStartTime = 0;
   }
 }
 

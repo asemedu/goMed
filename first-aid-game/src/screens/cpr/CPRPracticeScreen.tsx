@@ -5,8 +5,10 @@ import { ChevronLeft } from 'lucide-react';
 import { Screen } from '../../types';
 import { CameraMirrorView } from './components/CameraMirrorView';
 import { FramingGuideModal } from './components/FramingGuideModal';
+import { LiveHUDOverlay } from './components/LiveHUDOverlay';
 import { PoseLandmarkerResult } from '@mediapipe/tasks-vision';
 import { cprMetrics } from '../../services/cprMetricsCalculator';
+import { audioCoach } from '../../services/audioCoachQueue';
 
 interface Props {
   navigate: (screen: Screen) => void;
@@ -16,8 +18,9 @@ export function CPRPracticeScreen({ navigate }: Props) {
   const { videoRef, startStream, stopStream, error, isStreaming } = useCameraStream();
   const [hasStarted, setHasStarted] = useState(false);
   const [poseResult, setPoseResult] = useState<PoseLandmarkerResult | null>(null);
+  const [timeLeft, setTimeLeft] = useState(60);
 
-  // Compute metrics live for testing purposes
+  // Compute metrics live
   const liveMetrics = useMemo(() => {
     if (!hasStarted || !poseResult || !poseResult.landmarks || poseResult.landmarks.length === 0) {
       return null;
@@ -33,11 +36,52 @@ export function CPRPracticeScreen({ navigate }: Props) {
     return () => {
       stopStream();
       wakeLockManager.releaseWakeLock();
+      audioCoach.cancel();
     };
   }, []); // Run only once on mount
 
+  // Timer loop
+  useEffect(() => {
+    if (!hasStarted) return;
+    
+    audioCoach.speak("Begin CPR", true);
+    
+    const interval = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          audioCoach.speak("Stop CPR. Session complete.", true);
+          // TODO: Save stats and navigate to summary screen
+          setTimeout(() => navigate('dashboard'), 3000); 
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [hasStarted, navigate]);
+
+  // Audio Coaching Loop (Runs at 30fps with liveMetrics, audioCoach automatically throttles repeats to every 4s)
+  useEffect(() => {
+    if (!hasStarted || !liveMetrics || timeLeft === 0) return;
+
+    if (liveMetrics.isTooSlow) {
+      audioCoach.speak("Push faster");
+    } else if (liveMetrics.isTooFast) {
+      audioCoach.speak("Slow down");
+    } else if (liveMetrics.isGoodPace && liveMetrics.bpm > 0) {
+      // Occasional positive reinforcement (higher throttle to not be annoying)
+      audioCoach.speak("Good pace, keep it up", false, 10000);
+    }
+
+    if (!liveMetrics.isArmsLocked) {
+      audioCoach.speak("Lock your elbows");
+    }
+  }, [liveMetrics, hasStarted, timeLeft]);
+
   const handleStartPractice = () => {
-    // 1. Acquire wake lock
+    // Acquire wake lock
     wakeLockManager.requestWakeLock();
     setHasStarted(true);
   };
@@ -45,7 +89,7 @@ export function CPRPracticeScreen({ navigate }: Props) {
   return (
     <div className="min-h-screen bg-black text-white flex flex-col font-lexend relative">
       {/* Header (Absolute position to hover over camera) */}
-      <div className="absolute top-0 left-0 right-0 z-20 p-4 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent">
+      <div className="absolute top-0 left-0 right-0 z-50 p-4 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent">
         <button 
           onClick={() => navigate('dashboard')}
           className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition backdrop-blur-sm"
@@ -60,7 +104,7 @@ export function CPRPracticeScreen({ navigate }: Props) {
       <div className="flex-1 relative overflow-hidden bg-zinc-900 flex flex-col items-center justify-center">
         
         {error ? (
-          <div className="p-6 bg-red-900/50 rounded-xl border border-red-500 max-w-sm text-center z-20">
+          <div className="p-6 bg-red-900/50 rounded-xl border border-red-500 max-w-sm text-center z-50">
             <p className="text-red-200 mb-2">Camera Error</p>
             <p className="text-sm">{error}</p>
             <button 
@@ -90,38 +134,18 @@ export function CPRPracticeScreen({ navigate }: Props) {
             />
             
             {/* UI Overlay on top of video */}
-            <div className="absolute inset-0 flex flex-col items-center justify-end pb-12 z-30 pointer-events-none">
-              {!hasStarted && isStreaming && (
+            {!hasStarted && isStreaming && (
+              <div className="absolute inset-0 flex flex-col items-center justify-end pb-12 z-50 pointer-events-none">
                 <FramingGuideModal 
                   poseResult={poseResult}
                   onFramingComplete={handleStartPractice}
                 />
-              )}
+              </div>
+            )}
 
-              {hasStarted && liveMetrics && (
-                <div className="bg-black/70 backdrop-blur-md p-4 rounded-xl border border-white/20 pointer-events-auto w-[90%] max-w-sm mb-4">
-                  <h3 className="text-blue-400 font-bold uppercase tracking-wider text-sm mb-3">Live Math Engine Test</h3>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white/5 p-3 rounded-lg text-center">
-                      <p className="text-xs text-gray-400 mb-1">Cadence (BPM)</p>
-                      <p className={`text-2xl font-bold ${liveMetrics.isGoodPace ? 'text-green-400' : 'text-red-400'}`}>
-                        {liveMetrics.bpm}
-                      </p>
-                      <p className="text-[10px] text-gray-500 mt-1">Target: 100-120</p>
-                    </div>
-                    
-                    <div className="bg-white/5 p-3 rounded-lg text-center">
-                      <p className="text-xs text-gray-400 mb-1">Arms Locked?</p>
-                      <p className={`text-xl font-bold ${liveMetrics.isArmsLocked ? 'text-green-400' : 'text-orange-400'}`}>
-                        {liveMetrics.isArmsLocked ? 'YES' : 'BENT'}
-                      </p>
-                      <p className="text-[10px] text-gray-500 mt-1">L: {liveMetrics.leftElbowAngle}° R: {liveMetrics.rightElbowAngle}°</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            {hasStarted && (
+              <LiveHUDOverlay metrics={liveMetrics} timeLeft={timeLeft} />
+            )}
           </>
         )}
       </div>
