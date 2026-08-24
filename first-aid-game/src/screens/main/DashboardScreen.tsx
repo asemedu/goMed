@@ -267,7 +267,20 @@ export function DashboardScreen({
 
       {/* Live CPR Practice CTA */}
       <button
-        onClick={onStartCPRPractice}
+        onClick={() => {
+          // Unlock Audio on iOS (needs a direct user gesture)
+          const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+          if (AudioContext) {
+            const audioCtx = new AudioContext();
+            audioCtx.resume();
+          }
+          if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance('');
+            utterance.volume = 0;
+            window.speechSynthesis.speak(utterance);
+          }
+          onStartCPRPractice();
+        }}
         className="w-full bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center justify-between hover:bg-blue-100 active:scale-[0.98] transition-all shadow-sm mb-4"
       >
         <div className="flex items-center gap-3">
