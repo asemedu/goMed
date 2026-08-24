@@ -5,6 +5,7 @@ import { Screen } from '../../types';
 import { CameraMirrorView } from './components/CameraMirrorView';
 import { FramingGuideModal } from './components/FramingGuideModal';
 import { LiveHUDOverlay } from './components/LiveHUDOverlay';
+import { CPRSummaryModal } from './components/CPRSummaryModal';
 import { PoseLandmarkerResult } from '@mediapipe/tasks-vision';
 import { cprMetrics } from '../../services/cprMetricsCalculator';
 import { audioCoach } from '../../services/audioCoachQueue';
@@ -18,14 +19,15 @@ export function CPRPracticeScreen({ navigate }: Props) {
   const [hasStarted, setHasStarted] = useState(false);
   const [poseResult, setPoseResult] = useState<PoseLandmarkerResult | null>(null);
   const [timeLeft, setTimeLeft] = useState(60);
+  const [showSummary, setShowSummary] = useState(false);
 
   // Compute metrics live
   const liveMetrics = useMemo(() => {
-    if (!hasStarted || !poseResult || !poseResult.landmarks || poseResult.landmarks.length === 0) {
+    if (!hasStarted || !poseResult || !poseResult.landmarks || poseResult.landmarks.length === 0 || showSummary) {
       return null;
     }
     return cprMetrics.processFrame(poseResult.landmarks[0], performance.now());
-  }, [poseResult, hasStarted]);
+  }, [poseResult, hasStarted, showSummary]);
 
   useEffect(() => {
     // Start camera stream on mount
@@ -41,7 +43,7 @@ export function CPRPracticeScreen({ navigate }: Props) {
 
   // Timer loop
   useEffect(() => {
-    if (!hasStarted) return;
+    if (!hasStarted || showSummary) return;
     
     audioCoach.speak("Begin CPR", true);
     
@@ -50,8 +52,7 @@ export function CPRPracticeScreen({ navigate }: Props) {
         if (prev <= 1) {
           clearInterval(interval);
           audioCoach.speak("Stop CPR. Session complete.", true);
-          // TODO: Save stats and navigate to summary screen
-          setTimeout(() => navigate('dashboard'), 3000); 
+          setShowSummary(true);
           return 0;
         }
         return prev - 1;
@@ -59,11 +60,11 @@ export function CPRPracticeScreen({ navigate }: Props) {
     }, 1000);
     
     return () => clearInterval(interval);
-  }, [hasStarted, navigate]);
+  }, [hasStarted, showSummary]);
 
-  // Audio Coaching Loop (Runs at 30fps with liveMetrics, audioCoach automatically throttles repeats to every 4s)
+  // Audio Coaching Loop
   useEffect(() => {
-    if (!hasStarted || !liveMetrics || timeLeft === 0) return;
+    if (!hasStarted || !liveMetrics || timeLeft === 0 || showSummary) return;
 
     if (liveMetrics.isTooSlow) {
       audioCoach.speak("Push faster");
@@ -77,12 +78,15 @@ export function CPRPracticeScreen({ navigate }: Props) {
     if (!liveMetrics.isArmsLocked) {
       audioCoach.speak("Lock your elbows");
     }
-  }, [liveMetrics, hasStarted, timeLeft]);
+  }, [liveMetrics, hasStarted, timeLeft, showSummary]);
 
   const handleStartPractice = () => {
-    // Acquire wake lock
     wakeLockManager.requestWakeLock();
     setHasStarted(true);
+  };
+
+  const handleFinish = () => {
+    navigate('dashboard');
   };
 
   return (
@@ -109,16 +113,18 @@ export function CPRPracticeScreen({ navigate }: Props) {
               autoPlay
               playsInline
               muted
-              className="absolute inset-0 w-full h-full object-cover"
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${showSummary ? 'opacity-30 blur-sm' : 'opacity-100'}`}
               style={{ transform: 'scaleX(-1)' }}
             />
             
             {/* MediaPipe Overlay Layer */}
-            <CameraMirrorView 
-              videoRef={videoRef} 
-              isActive={isStreaming} 
-              onPoseUpdate={setPoseResult}
-            />
+            {!showSummary && (
+              <CameraMirrorView 
+                videoRef={videoRef} 
+                isActive={isStreaming} 
+                onPoseUpdate={setPoseResult}
+              />
+            )}
             
             {/* UI Overlay on top of video */}
             {!hasStarted && isStreaming && (
@@ -130,8 +136,16 @@ export function CPRPracticeScreen({ navigate }: Props) {
               </div>
             )}
 
-            {hasStarted && (
+            {hasStarted && !showSummary && (
               <LiveHUDOverlay metrics={liveMetrics} timeLeft={timeLeft} />
+            )}
+
+            {/* Post-Practice Summary */}
+            {showSummary && (
+              <CPRSummaryModal 
+                stats={cprMetrics.getSessionStats()}
+                onFinish={handleFinish}
+              />
             )}
           </>
         )}

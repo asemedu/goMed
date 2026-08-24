@@ -26,6 +26,12 @@ class CPRMetricsCalculator {
   private isArmsLockedState: boolean = true;
   private armsBentStartTime: number = 0;
 
+  // Session Stats Tracking
+  private totalCompressions: number = 0;
+  private goodCompressions: number = 0;
+  private totalFrames: number = 0;
+  private lockedFrames: number = 0;
+
   /**
    * Calculate 2D angle between three points (Shoulder, Elbow, Wrist)
    */
@@ -51,6 +57,8 @@ class CPRMetricsCalculator {
    * Process a single frame of landmarks to extract CPR metrics
    */
   processFrame(landmarks: NormalizedLandmark[], timestamp: number): CPRMetrics {
+    this.totalFrames++;
+
     // Indices based on MediaPipe Pose (BlazePose)
     const leftShoulder = landmarks[11];
     const leftElbow = landmarks[13];
@@ -88,6 +96,10 @@ class CPRMetricsCalculator {
       }
     }
 
+    if (this.isArmsLockedState) {
+      this.lockedFrames++;
+    }
+
     // ---------------------------------------------------------
     // CADENCE (BPM) TRACKING
     // Track the vertical displacement of the SHOULDERS instead of wrists
@@ -123,10 +135,7 @@ class CPRMetricsCalculator {
 
           // --- We register this as one beat (bottom of the compression) ---
           this.peakTimestamps.push(timestamp);
-
-          if (this.peakTimestamps.length > 6) {
-            this.peakTimestamps.shift();
-          }
+          this.totalCompressions++;
 
           if (this.peakTimestamps.length >= 2) {
             const dt = timestamp - this.peakTimestamps[this.peakTimestamps.length - 2];
@@ -138,6 +147,15 @@ class CPRMetricsCalculator {
                 this.emaBPM = (instantBPM * 0.3) + (this.emaBPM * 0.7);
               }
             }
+          }
+
+          if (this.peakTimestamps.length > 6) {
+            this.peakTimestamps.shift();
+          }
+
+          const currentBPM = Math.round(this.emaBPM);
+          if (currentBPM >= 100 && currentBPM <= 120) {
+            this.goodCompressions++;
           }
         }
       } else {
@@ -176,6 +194,26 @@ class CPRMetricsCalculator {
   }
 
   /**
+   * Get overall session stats
+   */
+  getSessionStats() {
+    const lockedPercentage = this.totalFrames > 0 
+      ? Math.round((this.lockedFrames / this.totalFrames) * 100) 
+      : 0;
+    
+    // Average BPM over the entire session = totalCompressions / (60 seconds) * 60 = totalCompressions
+    // But since the session is exactly 60 seconds, totalCompressions IS the average BPM!
+    // However, they might not compress for the full 60s, so average BPM during active compression is better.
+    // For simplicity, we just return totalCompressions and goodCompressions.
+
+    return {
+      totalCompressions: this.totalCompressions,
+      goodCompressions: this.goodCompressions,
+      lockedPercentage
+    };
+  }
+
+  /**
    * Reset the tracker for a new session
    */
   reset() {
@@ -185,6 +223,11 @@ class CPRMetricsCalculator {
     this.peakTimestamps = [];
     this.isArmsLockedState = true;
     this.armsBentStartTime = 0;
+    
+    this.totalCompressions = 0;
+    this.goodCompressions = 0;
+    this.totalFrames = 0;
+    this.lockedFrames = 0;
   }
 }
 
