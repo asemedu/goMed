@@ -118,3 +118,9 @@ dist
 # OS metadata
 .DS_Store
 Thumbs.db
+
+Future-Changes.md
+
+# Vite specific
+dist-ssr/
+*.local
