@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Heart } from "lucide-react";
 import { supabase } from "./lib/supabaseClient";
 import { storage, STORAGE_KEYS } from "./lib/storage";
 import { Screen } from "./types";
@@ -201,18 +201,32 @@ export default function App() {
             paddingTop: "env(safe-area-inset-top)",
           }}
         >
-          {/* Back Button Header */}
-          {historyStack.length > 1 && (
-            <div className="w-full px-5 pt-3 pb-1 flex items-center justify-between z-10 shrink-0 bg-transparent gap-2">
-              <button
-                onClick={goBack}
-                className="w-10 h-10 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-[#E8EDE6] flex items-center justify-center text-[#1A2816] hover:bg-white active:scale-95 transition-all shrink-0"
-                aria-label="Go back"
-              >
-                <ArrowLeft size={20} strokeWidth={2.5} />
-              </button>
+          {/* Back Button Header with ASEM Branding */}
+          <div className="w-full px-5 pt-5 pb-1 flex items-center justify-between z-10 shrink-0 bg-transparent gap-2">
+            <button
+              onClick={historyStack.length > 1 ? goBack : undefined}
+              disabled={historyStack.length <= 1}
+              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shrink-0 ${
+                historyStack.length > 1 
+                  ? "bg-white/80 backdrop-blur-md shadow-sm border border-[#E8EDE6] text-[#1A2816] hover:bg-white active:scale-95 cursor-pointer" 
+                  : "bg-[#F7FBF5] border border-[#E8EDE6] text-[#A0B09A] cursor-not-allowed"
+              }`}
+              aria-label="Go back"
+            >
+              <ArrowLeft size={20} strokeWidth={2.5} />
+            </button>
+
+            <span
+              className="flex-1 text-center text-[10px] sm:text-[11px] font-extrabold text-[#1A3312] leading-tight uppercase tracking-wide"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              Asociatia pentru Sustinerea<br />Educatiei Medicale
+            </span>
+
+            <div className="w-10 h-10 flex items-center justify-center shrink-0 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-[#E8EDE6] p-0.5 overflow-hidden">
+              <img src="/logo_asem.png" alt="ASEM Logo" className="w-full h-full object-contain" />
             </div>
-          )}
+          </div>
 
           {/* This inner div is what actually enables the scrolling! */}
           <div
