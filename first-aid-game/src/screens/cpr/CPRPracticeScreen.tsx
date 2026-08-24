@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useCameraStream } from '../../hooks/useCameraStream';
 import { wakeLockManager } from '../../services/wakeLockManager';
 import { ChevronLeft } from 'lucide-react';
@@ -6,6 +6,7 @@ import { Screen } from '../../types';
 import { CameraMirrorView } from './components/CameraMirrorView';
 import { FramingGuideModal } from './components/FramingGuideModal';
 import { PoseLandmarkerResult } from '@mediapipe/tasks-vision';
+import { cprMetrics } from '../../services/cprMetricsCalculator';
 
 interface Props {
   navigate: (screen: Screen) => void;
@@ -16,9 +17,18 @@ export function CPRPracticeScreen({ navigate }: Props) {
   const [hasStarted, setHasStarted] = useState(false);
   const [poseResult, setPoseResult] = useState<PoseLandmarkerResult | null>(null);
 
+  // Compute metrics live for testing purposes
+  const liveMetrics = useMemo(() => {
+    if (!hasStarted || !poseResult || !poseResult.landmarks || poseResult.landmarks.length === 0) {
+      return null;
+    }
+    return cprMetrics.processFrame(poseResult.landmarks[0], performance.now());
+  }, [poseResult, hasStarted]);
+
   useEffect(() => {
     // Start camera stream on mount
     startStream();
+    cprMetrics.reset();
 
     return () => {
       stopStream();
@@ -88,12 +98,27 @@ export function CPRPracticeScreen({ navigate }: Props) {
                 />
               )}
 
-              {hasStarted && (
-                <div className="bg-black/40 backdrop-blur-sm px-6 py-3 rounded-full border border-white/20 pointer-events-auto mt-auto">
-                  <p className="text-sm font-semibold tracking-wider uppercase text-blue-400">
-                    Phase 2 Running
-                  </p>
-                  <p className="text-xs text-gray-300 text-center">MediaPipe Pose tracking active</p>
+              {hasStarted && liveMetrics && (
+                <div className="bg-black/70 backdrop-blur-md p-4 rounded-xl border border-white/20 pointer-events-auto w-[90%] max-w-sm mb-4">
+                  <h3 className="text-blue-400 font-bold uppercase tracking-wider text-sm mb-3">Live Math Engine Test</h3>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white/5 p-3 rounded-lg text-center">
+                      <p className="text-xs text-gray-400 mb-1">Cadence (BPM)</p>
+                      <p className={`text-2xl font-bold ${liveMetrics.isGoodPace ? 'text-green-400' : 'text-red-400'}`}>
+                        {liveMetrics.bpm}
+                      </p>
+                      <p className="text-[10px] text-gray-500 mt-1">Target: 100-120</p>
+                    </div>
+                    
+                    <div className="bg-white/5 p-3 rounded-lg text-center">
+                      <p className="text-xs text-gray-400 mb-1">Arms Locked?</p>
+                      <p className={`text-xl font-bold ${liveMetrics.isArmsLocked ? 'text-green-400' : 'text-orange-400'}`}>
+                        {liveMetrics.isArmsLocked ? 'YES' : 'BENT'}
+                      </p>
+                      <p className="text-[10px] text-gray-500 mt-1">L: {liveMetrics.leftElbowAngle}° R: {liveMetrics.rightElbowAngle}°</p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
