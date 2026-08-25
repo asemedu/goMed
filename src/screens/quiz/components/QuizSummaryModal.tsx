@@ -103,7 +103,7 @@ export function QuizSummaryModal({
 
           {/* Accuracy */}
           <div className="bg-[#FAFCF9] rounded-2xl p-3 border border-[#E8EDE6]">
-            <p className="text-[10px] font-bold text-[#A0B09A] uppercase tracking-wider mb-1 flex items-center gap-1">
+            <p className="text-[10px] font-bold text-[#6B7C6B] uppercase tracking-wider mb-1 flex items-center gap-1">
               <Target size={12} /> Accuracy
             </p>
             <p className="text-[20px] font-extrabold text-[#1A2816]">
@@ -116,7 +116,7 @@ export function QuizSummaryModal({
 
           {/* Average Speed */}
           <div className="bg-[#FAFCF9] rounded-2xl p-3 border border-[#E8EDE6]">
-            <p className="text-[10px] font-bold text-[#A0B09A] uppercase tracking-wider mb-1 flex items-center gap-1">
+            <p className="text-[10px] font-bold text-[#6B7C6B] uppercase tracking-wider mb-1 flex items-center gap-1">
               <Clock size={12} /> Avg Speed
             </p>
             <p className="text-[20px] font-extrabold text-[#1A2816]">

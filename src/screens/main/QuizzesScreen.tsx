@@ -94,7 +94,7 @@ export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps
                     >
                       {mod.tag}
                     </span>
-                    <span className="text-[11px] text-[#A0B09A] ml-auto font-semibold">
+                    <span className="text-[11px] text-[#6B7C6B] ml-auto font-semibold">
                       {mod.time}
                     </span>
                   </div>

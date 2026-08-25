@@ -61,7 +61,7 @@ export function LandingScreen({ onNext }: LandingScreenProps) {
       {/* Sponsor footer */}
       <div className="border-t border-[#E8F0E4] mx-5 pt-4 pb-3">
         <p
-          className="text-center text-[11px] text-[#A0B09A] mb-3 font-semibold uppercase tracking-widest"
+          className="text-center text-[11px] text-[#6B7C6B] mb-3 font-semibold uppercase tracking-widest"
           style={{ fontFamily: "'Nunito', sans-serif" }}
         >
           Supported by
@@ -78,7 +78,7 @@ export function LandingScreen({ onNext }: LandingScreenProps) {
                 <Icon size={17} className="text-[#B3D59F]" />
               </div>
               <span
-                className="text-[10px] text-[#A0B09A] font-bold"
+                className="text-[10px] text-[#6B7C6B] font-bold"
                 style={{ fontFamily: "'Nunito', sans-serif" }}
               >
                 {label}

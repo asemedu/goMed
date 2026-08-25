@@ -40,7 +40,7 @@ export function LobbyQRCodeModal({
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-[#A0B09A] hover:text-[#1A2816] p-1.5 rounded-full hover:bg-[#F0F5EE]"
+          className="absolute top-4 right-4 text-[#6B7C6B] hover:text-[#1A2816] p-1.5 rounded-full hover:bg-[#F0F5EE]"
           aria-label="Close QR Code"
         >
           <X size={18} />

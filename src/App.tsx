@@ -211,7 +211,7 @@ export default function App() {
               className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shrink-0 ${
                 historyStack.length > 1 
                   ? "bg-white/80 backdrop-blur-md shadow-sm border border-[#E8EDE6] text-[#1A2816] hover:bg-white active:scale-95 cursor-pointer" 
-                  : "bg-[#F7FBF5] border border-[#E8EDE6] text-[#A0B09A] cursor-not-allowed"
+                  : "bg-[#F7FBF5] border border-[#E8EDE6] text-[#6B7C6B] cursor-not-allowed"
               }`}
               aria-label="Go back"
             >

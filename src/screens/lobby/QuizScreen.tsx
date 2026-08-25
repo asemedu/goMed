@@ -305,7 +305,7 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
                 badgeStyle = "bg-[#C0384E] text-white";
               } else {
                 cardStyle =
-                  "bg-white border-[#E8EDE6] text-[#A0B09A] opacity-60";
+                  "bg-white border-[#E8EDE6] text-[#6B7C6B] opacity-60";
               }
             } else if (isSelected) {
               cardStyle =

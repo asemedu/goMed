@@ -149,7 +149,7 @@ export function ARHubScreen({ onSelectMovement }: ARHubScreenProps) {
                     >
                       {move.category}
                     </span>
-                    <span className="text-[10px] text-[#A0B09A] font-bold ml-auto uppercase">
+                    <span className="text-[10px] text-[#6B7C6B] font-bold ml-auto uppercase">
                       {move.difficulty}
                     </span>
                   </div>
@@ -197,7 +197,7 @@ export function ARHubScreen({ onSelectMovement }: ARHubScreenProps) {
           >
             <button
               onClick={() => setActiveMovementModal(null)}
-              className="absolute top-4 right-4 text-[#A0B09A] hover:text-[#1A2816] p-1.5 rounded-full hover:bg-[#F0F5EE]"
+              className="absolute top-4 right-4 text-[#6B7C6B] hover:text-[#1A2816] p-1.5 rounded-full hover:bg-[#F0F5EE]"
               aria-label="Close"
             >
               <X size={18} />
@@ -281,7 +281,7 @@ export function ARHubScreen({ onSelectMovement }: ARHubScreenProps) {
                     </p>
                   </div>
                 </div>
-                <ArrowRight size={16} className="text-[#A0B09A]" />
+                <ArrowRight size={16} className="text-[#6B7C6B]" />
               </button>
             </div>
           </div>

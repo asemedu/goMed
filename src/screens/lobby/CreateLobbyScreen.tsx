@@ -147,7 +147,7 @@ export function CreateLobbyScreen({
             value={school}
             onChange={(e) => setSchool(e.target.value)}
             placeholder="e.g. Colegiul National Sfantul Sava"
-            className="w-full px-4 py-3.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#A0B09A] focus:outline-none focus:border-[#B3D59F] text-[14px]"
+            className="w-full px-4 py-3.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#6B7C6B] focus:outline-none focus:border-[#B3D59F] text-[14px]"
             style={{ fontFamily: "'Nunito', sans-serif" }}
           />
         </div>

@@ -84,7 +84,7 @@ export function CPRSummaryModal({ stats, onFinish }: Props) {
         <h2 className="text-2xl font-extrabold text-[#1A3312] mb-1" style={{ fontFamily: "'Lexend', sans-serif" }}>
           Session Complete!
         </h2>
-        <p className="text-sm font-bold text-[#A0B09A] uppercase tracking-widest mb-8">
+        <p className="text-sm font-bold text-[#6B7C6B] uppercase tracking-widest mb-8">
           CPR Practice Drill
         </p>
 

@@ -149,7 +149,7 @@ export function AuthScreen({ onNext }: AuthScreenProps) {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="e.g. Alex C. or Dr. Smith"
-                className="w-full px-4 py-3.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#A0B09A] focus:outline-none focus:border-[#B3D59F] focus:ring-2 focus:ring-[#B3D59F]/30 transition-all text-[14px]"
+                className="w-full px-4 py-3.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#6B7C6B] focus:outline-none focus:border-[#B3D59F] focus:ring-2 focus:ring-[#B3D59F]/30 transition-all text-[14px]"
                 style={{ fontFamily: "'Nunito', sans-serif" }}
               />
             </div>
@@ -167,7 +167,7 @@ export function AuthScreen({ onNext }: AuthScreenProps) {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder={mode === "signup" ? "Enter your email" : "Enter your username or email"}
-              className="w-full px-4 py-3.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#A0B09A] focus:outline-none focus:border-[#B3D59F] focus:ring-2 focus:ring-[#B3D59F]/30 transition-all text-[14px]"
+              className="w-full px-4 py-3.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#6B7C6B] focus:outline-none focus:border-[#B3D59F] focus:ring-2 focus:ring-[#B3D59F]/30 transition-all text-[14px]"
               style={{ fontFamily: "'Nunito', sans-serif" }}
             />
           </div>
@@ -184,13 +184,13 @@ export function AuthScreen({ onNext }: AuthScreenProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
-                className="w-full px-4 py-3.5 pr-12 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#A0B09A] focus:outline-none focus:border-[#B3D59F] focus:ring-2 focus:ring-[#B3D59F]/30 transition-all text-[14px]"
+                className="w-full px-4 py-3.5 pr-12 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#6B7C6B] focus:outline-none focus:border-[#B3D59F] focus:ring-2 focus:ring-[#B3D59F]/30 transition-all text-[14px]"
                 style={{ fontFamily: "'Nunito', sans-serif" }}
               />
               <button
                 type="button"
                 onClick={() => setShowPw(!showPw)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#A0B09A] hover:text-[#3D6B2A] transition-colors"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7C6B] hover:text-[#3D6B2A] transition-colors"
               >
                 {showPw ? <EyeOff size={17} /> : <Eye size={17} />}
               </button>
@@ -222,7 +222,7 @@ export function AuthScreen({ onNext }: AuthScreenProps) {
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 placeholder="Confirm your password"
-                className="w-full px-4 py-3.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#A0B09A] focus:outline-none focus:border-[#B3D59F] focus:ring-2 focus:ring-[#B3D59F]/30 transition-all text-[14px]"
+                className="w-full px-4 py-3.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#6B7C6B] focus:outline-none focus:border-[#B3D59F] focus:ring-2 focus:ring-[#B3D59F]/30 transition-all text-[14px]"
                 style={{ fontFamily: "'Nunito', sans-serif" }}
               />
             </div>

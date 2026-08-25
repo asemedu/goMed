@@ -309,7 +309,7 @@ export function DashboardScreen({
             </p>
           </div>
         </div>
-        <ChevronRight size={18} className="text-[#A0B09A]" />
+        <ChevronRight size={18} className="text-[#6B7C6B]" />
       </button>
 
       {/* Live CPR Practice CTA */}
@@ -349,7 +349,7 @@ export function DashboardScreen({
             </p>
           </div>
         </div>
-        <ChevronRight size={18} className="text-[#A0B09A]" />
+        <ChevronRight size={18} className="text-[#6B7C6B]" />
       </button>
 
       {/* Recent activity */}

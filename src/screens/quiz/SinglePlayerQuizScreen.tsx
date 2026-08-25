@@ -251,7 +251,7 @@ export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizS
                   cardStyle = "bg-[#FFF0F2] border-[#C0384E] text-[#C0384E]";
                   badgeStyle = "bg-[#C0384E] text-white";
                 } else {
-                  cardStyle = "bg-white border-[#E8EDE6] text-[#A0B09A] opacity-50";
+                  cardStyle = "bg-white border-[#E8EDE6] text-[#6B7C6B] opacity-50";
                 }
               }
 

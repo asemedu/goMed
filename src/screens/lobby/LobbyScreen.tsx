@@ -563,7 +563,7 @@ export function LobbyScreen({
           <div className="flex items-center gap-3 mb-4">
             <div className="flex-1 h-px bg-[#E0EAD8]" />
             <span
-              className="text-[12px] font-bold text-[#A0B09A] bg-[#F0F5EE] px-3 py-1 rounded-full"
+              className="text-[12px] font-bold text-[#6B7C6B] bg-[#F0F5EE] px-3 py-1 rounded-full"
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
               OR ENTER CODE
@@ -584,7 +584,7 @@ export function LobbyScreen({
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               placeholder="e.g. MED123"
               maxLength={12}
-              className="flex-1 px-4 py-3.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#A0B09A] focus:outline-none focus:border-[#B3D59F] focus:ring-2 focus:ring-[#B3D59F]/30 transition-all text-[15px] font-mono tracking-widest uppercase font-bold"
+              className="flex-1 px-4 py-3.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#6B7C6B] focus:outline-none focus:border-[#B3D59F] focus:ring-2 focus:ring-[#B3D59F]/30 transition-all text-[15px] font-mono tracking-widest uppercase font-bold"
             />
             <button
               type="submit"
