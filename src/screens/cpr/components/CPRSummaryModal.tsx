@@ -48,7 +48,7 @@ export function CPRSummaryModal({ stats, onFinish }: Props) {
       if (profile && profile.id) {
         try {
           // Call the new RPC function to securely update XP, streak, and activities count
-          await supabase.rpc('record_activity', { xp_earned: totalXpEarned });
+          await supabase.rpc('record_activity', { xp_earned: totalXpEarned, activity_title: 'CPR Practice Drill' });
           
           // Re-fetch the updated profile to sync local storage accurately
           const { data: updatedProfile } = await supabase

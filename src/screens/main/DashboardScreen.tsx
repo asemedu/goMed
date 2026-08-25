@@ -49,6 +49,28 @@ export function DashboardScreen({
     icon: "Trophy" | "Zap";
   }>({ isOpen: false, title: "", description: "", icon: "Trophy" });
 
+  const [activities, setActivities] = useState<Array<{
+    id: string;
+    title: string;
+    xp_earned: number;
+    created_at: string;
+  }>>([]);
+
+  const formatRelativeTime = (dateString: string): string => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInMins = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+    if (diffInMins < 1) return "Just now";
+    if (diffInMins < 60) return `${diffInMins}m ago`;
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    if (diffInDays === 1) return "Yesterday";
+    return `${diffInDays}d ago`;
+  };
+
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
@@ -88,6 +110,21 @@ export function DashboardScreen({
             };
             setProfile(fallbackProfile);
             storage.set(STORAGE_KEYS.PROFILE, fallbackProfile);
+          }
+          // Fetch recent user activities
+          try {
+            const { data: actData } = await supabase
+              .from("user_activities")
+              .select("id, title, xp_earned, created_at")
+              .eq("user_id", user.id)
+              .order("created_at", { ascending: false })
+              .limit(3);
+
+            if (actData) {
+              setActivities(actData);
+            }
+          } catch (actErr) {
+            console.error("Failed to fetch user activities", actErr);
           }
         }
       } catch (err) {
@@ -360,39 +397,44 @@ export function DashboardScreen({
         Recent Activity
       </p>
       <div className="space-y-2">
-        {[
-          { title: "CPR Basic Challenge", xp: "+120 XP", time: "2h ago" },
-          { title: "Wound Care Module", xp: "+80 XP", time: "Yesterday" },
-        ].map((item, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-3 bg-white border border-[#E8EDE6] rounded-xl p-3"
-          >
-            <div className="w-8 h-8 rounded-xl bg-[#E8F5E2] flex items-center justify-center shrink-0">
-              <CheckCircle size={14} className="text-[#3D6B2A]" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p
-                className="text-[13px] font-bold text-[#1A2816] truncate"
+        {activities.length === 0 ? (
+          <div className="bg-white border border-[#E8EDE6] rounded-xl p-4 text-center">
+            <p className="text-[13px] text-[#6B7C6B]" style={{ fontFamily: "'Nunito', sans-serif" }}>
+              No recent activity yet. Complete a quiz or CPR drill to track your progress!
+            </p>
+          </div>
+        ) : (
+          activities.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-center gap-3 bg-white border border-[#E8EDE6] rounded-xl p-3"
+            >
+              <div className="w-8 h-8 rounded-xl bg-[#E8F5E2] flex items-center justify-center shrink-0">
+                <CheckCircle size={14} className="text-[#3D6B2A]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p
+                  className="text-[13px] font-bold text-[#1A2816] truncate"
+                  style={{ fontFamily: "'Lexend', sans-serif" }}
+                >
+                  {item.title}
+                </p>
+                <p
+                  className="text-[11px] text-[#6B7C6B]"
+                  style={{ fontFamily: "'Nunito', sans-serif" }}
+                >
+                  {formatRelativeTime(item.created_at)}
+                </p>
+              </div>
+              <span
+                className="text-[11px] font-bold text-[#3D6B2A] bg-[#E8F5E2] px-2 py-1 rounded-lg shrink-0"
                 style={{ fontFamily: "'Lexend', sans-serif" }}
               >
-                {item.title}
-              </p>
-              <p
-                className="text-[11px] text-[#6B7C6B]"
-                style={{ fontFamily: "'Nunito', sans-serif" }}
-              >
-                {item.time}
-              </p>
+                +{item.xp_earned} XP
+              </span>
             </div>
-            <span
-              className="text-[11px] font-bold text-[#3D6B2A] bg-[#E8F5E2] px-2 py-1 rounded-lg shrink-0"
-              style={{ fontFamily: "'Lexend', sans-serif" }}
-            >
-              {item.xp}
-            </span>
-          </div>
-        ))}
+          ))
+        )}
       </div>
       {/* Info Modal */}
       {infoModal.isOpen && (

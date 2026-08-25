@@ -34,7 +34,7 @@ export function QuizSummaryModal({
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           // Call the new RPC function to securely update XP, streak, and activities count
-          await supabase.rpc('record_activity', { xp_earned: totalXP });
+          await supabase.rpc('record_activity', { xp_earned: totalXP, activity_title: 'Quiz Challenge' });
           
           // Re-fetch the updated profile to sync local storage accurately
           const { data: updatedProfile } = await supabase
