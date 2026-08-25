@@ -13,7 +13,7 @@ export function CreateLobbyScreen({
 }: CreateLobbyScreenProps) {
   const [school, setSchool] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(8);
-  const [category, setCategory] = useState("cpr");
+  const [category, setCategory] = useState("siguranta");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -190,14 +190,59 @@ export function CreateLobbyScreen({
           <div className="space-y-2">
             {[
               {
-                id: "cpr",
-                title: "CPR & Cardiac Arrest",
-                desc: "Chest compressions, airway & rhythm",
+                id: "siguranta",
+                title: "1. Siguranță, Legislație și Baze",
+                desc: "Norme legale, siguranța salvatorului și lanțul supraviețuirii.",
               },
               {
-                id: "burns",
-                title: "Burns & Wound Care",
-                desc: "Bandaging, triage & thermal injuries",
+                id: "evaluare_112",
+                title: "2. Apelul 112 & Evaluarea (A.B.C.)",
+                desc: "Protocolul PAS, verificarea respirației și eliberarea căilor aeriene.",
+              },
+              {
+                id: "rcp_adulti",
+                title: "3. Resuscitarea (RCP) - Adulți",
+                desc: "Compresii toracice, frecvență, adâncime și raportul 30:2.",
+              },
+              {
+                id: "aed",
+                title: "4. Defibrilatorul Extern Automat (AED)",
+                desc: "Utilizarea corectă a defibrilatorului și siguranța șocului electric.",
+              },
+              {
+                id: "pls",
+                title: "5. Poziția Laterală de Siguranță (PLS)",
+                desc: "Protejarea căilor aeriene la pacientul inconștient care respiră.",
+              },
+              {
+                id: "dezobstructie",
+                title: "6. Dezobstrucția Căilor Aeriene",
+                desc: "Manevra Heimlich, lovituri interscapulare și cazuri speciale.",
+              },
+              {
+                id: "copii_sugari",
+                title: "7. Primul Ajutor la Copii & Sugari",
+                desc: "Particularități de resuscitare și dezobstrucție la bebeluși.",
+              },
+              {
+                id: "urgente_medicale",
+                title: "8. Urgențe Medicale (Anafilaxie, Leșin, Epilepsie)",
+                desc: "Prim ajutor în caz de anafilaxie, leșin și convulsii epileptice.",
+              },
+              {
+                id: "trauma",
+                title: "9. Traume & Hemoragii",
+                desc: "Controlul sângerărilor arteriale, presiune directă și garou.",
+              },
+              {
+                id: "arsuri",
+                title: "10. Arsuri (Termice, Chimice, Electrice)",
+                desc: "Regula de 10, răcire cu apă și măsuri de prim ajutor.",
+              },
+              {
+                id: "intoxicatii",
+                title: "11. Urgențe de Mediu & Intoxicații",
+                desc: "Hipotermie, insolație gravă și intoxicații cu monoxid de carbon.",
               },
             ].map((cat) => (
               <button
