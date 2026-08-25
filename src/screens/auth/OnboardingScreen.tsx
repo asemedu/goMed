@@ -13,12 +13,22 @@ import {
   Camera,
   ChevronRight,
 } from "lucide-react";
+import { useLanguage } from "../../lib/i18n/LanguageContext";
 
 interface OnboardingScreenProps {
   onNext: () => void;
 }
 
 export function OnboardingScreen({ onNext }: OnboardingScreenProps) {
+  const { t } = useLanguage();
+
+  const resumeItems = [
+    { icon: Trophy, text: t("onboarding.resumePoint1", "Earn XP and level up your first-aid rank through live challenges") },
+    { icon: Zap, text: t("onboarding.resumePoint2", "Real-time multiplayer scenarios via QR lobby system") },
+    { icon: Star, text: t("onboarding.resumePoint3", "Unlock badges and certifications as you progress") },
+    { icon: Users, text: t("onboarding.resumePoint4", "Compete and collaborate with peers in live training sessions") },
+  ];
+
   return (
     <div className="relative flex flex-col" style={{ minHeight: 740 }}>
       <div className="px-6 pt-5 pb-2">
@@ -26,10 +36,10 @@ export function OnboardingScreen({ onNext }: OnboardingScreenProps) {
           className="text-[22px] font-extrabold text-[#1A2816]"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          Before You Begin
+          {t("onboarding.title", "Before You Begin")}
         </h2>
         <p className="text-[13px] text-[#6B7C6B] mt-0.5" style={{ fontFamily: "'Nunito', sans-serif" }}>
-          Please review the following information
+          {t("onboarding.subtitle", "Please review the following information")}
         </p>
       </div>
 
@@ -45,20 +55,15 @@ export function OnboardingScreen({ onNext }: OnboardingScreenProps) {
                 className="font-bold text-[#1A2816] text-[15px]"
                 style={{ fontFamily: "'Lexend', sans-serif" }}
               >
-                App Resumé
+                {t("onboarding.resumeTitle", "App Resumé")}
               </h3>
               <p className="text-[12px] text-[#6B7C6B]" style={{ fontFamily: "'Nunito', sans-serif" }}>
-                What you will learn & earn
+                {t("onboarding.resumeSubtitle", "What you will learn & earn")}
               </p>
             </div>
           </div>
           <div className="space-y-3">
-            {[
-              { icon: Trophy, text: "Earn XP and level up your first-aid rank through live challenges" },
-              { icon: Zap, text: "Real-time multiplayer scenarios via QR lobby system" },
-              { icon: Star, text: "Unlock badges and certifications as you progress" },
-              { icon: Users, text: "Compete and collaborate with peers in live training sessions" },
-            ].map(({ icon: Icon, text }, i) => (
+            {resumeItems.map(({ icon: Icon, text }, i) => (
               <div key={i} className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-lg bg-[#E0F2D8] flex items-center justify-center shrink-0 mt-0.5">
                   <Icon size={12} className="text-[#3D6B2A]" />
@@ -85,10 +90,10 @@ export function OnboardingScreen({ onNext }: OnboardingScreenProps) {
                 className="font-bold text-[#1A2816] text-[15px]"
                 style={{ fontFamily: "'Lexend', sans-serif" }}
               >
-                System Requirements
+                {t("onboarding.sysReqTitle", "System Requirements")}
               </h3>
               <p className="text-[12px] text-[#6B7C6B]" style={{ fontFamily: "'Nunito', sans-serif" }}>
-                Supported browsers only
+                {t("onboarding.sysReqSubtitle", "Supported browsers only")}
               </p>
             </div>
           </div>
@@ -98,8 +103,8 @@ export function OnboardingScreen({ onNext }: OnboardingScreenProps) {
                 icon: Apple,
                 iconColor: "text-[#1A2816]",
                 iconBg: "bg-[#F5F5F8]",
-                title: "iPhone users",
-                sub: "Use Safari browser",
+                title: t("onboarding.iphoneUsers", "iPhone users"),
+                sub: t("onboarding.iphoneSub", "Use Safari browser"),
               },
               {
                 icon: () => (
@@ -112,8 +117,8 @@ export function OnboardingScreen({ onNext }: OnboardingScreenProps) {
                 ),
                 iconColor: "",
                 iconBg: "bg-white",
-                title: "Android users",
-                sub: "Use Chrome browser",
+                title: t("onboarding.androidUsers", "Android users"),
+                sub: t("onboarding.androidSub", "Use Chrome browser"),
               },
             ].map(({ icon: Icon, iconColor, iconBg, title, sub }, i) => (
               <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-[#F8F8FB] border border-[#EBEBF2]">
@@ -148,10 +153,10 @@ export function OnboardingScreen({ onNext }: OnboardingScreenProps) {
                 className="font-bold text-[#1A2816] text-[15px]"
                 style={{ fontFamily: "'Lexend', sans-serif" }}
               >
-                Privacy & GDPR
+                {t("onboarding.privacyTitle", "Privacy & GDPR")}
               </h3>
               <p className="text-[12px] text-[#6B7C6B]" style={{ fontFamily: "'Nunito', sans-serif" }}>
-                Your data is protected
+                {t("onboarding.privacySubtitle", "Your data is protected")}
               </p>
             </div>
           </div>
@@ -161,13 +166,13 @@ export function OnboardingScreen({ onNext }: OnboardingScreenProps) {
               className="font-extrabold text-[#1A2816] text-[16px]"
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
-              Your data is 100% safe.
+              {t("onboarding.dataSafe", "Your data is 100% safe.")}
             </p>
             <p
               className="text-center text-[13px] text-[#6B7C6B] mt-1 px-4"
               style={{ fontFamily: "'Nunito', sans-serif" }}
             >
-              We never collect personal medical data or share information with third parties.
+              {t("onboarding.privacyDesc", "We never collect personal medical data or share information with third parties.")}
             </p>
           </div>
           <div className="bg-[#FFF4F6] border border-[#FCC8D0] rounded-xl p-3 flex items-center gap-3">
@@ -178,8 +183,7 @@ export function OnboardingScreen({ onNext }: OnboardingScreenProps) {
               className="text-[13px] font-bold text-[#1A2816]"
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
-              Videos are{" "}
-              <span className="text-[#C0384E]">NEVER</span> saved.
+              {t("onboarding.videosNeverSaved", "Videos are NEVER saved.")}
             </p>
           </div>
         </div>
@@ -190,10 +194,10 @@ export function OnboardingScreen({ onNext }: OnboardingScreenProps) {
         <div className="bg-white/90 backdrop-blur-sm pt-3 rounded-t-2xl">
           <button
             onClick={onNext}
-            className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[17px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2"
+            className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[17px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            Next <ChevronRight size={20} strokeWidth={2.5} />
+            {t("onboarding.next", "Next")} <ChevronRight size={20} strokeWidth={2.5} />
           </button>
         </div>
       </div>

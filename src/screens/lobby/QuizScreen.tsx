@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Trophy, CheckCircle, ArrowRight } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
+import { useLanguage } from "../../lib/i18n/LanguageContext";
 
 interface QuizScreenProps {
   lobby: any;
@@ -8,6 +9,7 @@ interface QuizScreenProps {
 }
 
 export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -90,14 +92,14 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
 
         setQuestions(loadedQuestions);
       } catch (err: any) {
-        setErrorMsg(err.message || "Failed to load questions.");
+        setErrorMsg(err.message || t("lobby.errFailedLoad", "Failed to load questions."));
       } finally {
         setLoading(false);
       }
     };
 
     fetchQuestions();
-  }, [lobby?.id]);
+  }, [lobby?.id, t]);
 
   const currentQ = questions[currentIndex];
 
@@ -106,18 +108,39 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
     setSelectedAnswerId(answerId);
   };
 
-  const handleSubmitOrNext = () => {
+  const handleSubmitOrNext = async () => {
     if (!isAnswerSubmitted) {
       if (!selectedAnswerId) return;
 
-      const selected = currentQ?.answers?.find(
+      const chosenAns = currentQ?.answers?.find(
         (a: any) => a.id === selectedAnswerId
       );
-      if (selected?.is_correct) {
-        setScore((prev) => prev + (currentQ.points || 100));
+      const isCorrect = Boolean(chosenAns?.is_correct);
+
+      if (isCorrect) {
+        const pointsEarned = currentQ.points || 100;
+        setScore((prev) => prev + pointsEarned);
+
+        // Update score in lobby_participants
+        try {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (user && lobby?.id) {
+            await supabase.rpc("increment_participant_score", {
+              p_lobby_id: lobby.id,
+              p_user_id: user.id,
+              p_points: pointsEarned,
+            });
+          }
+        } catch (e) {
+          console.error("Score increment failed:", e);
+        }
       }
+
       setIsAnswerSubmitted(true);
     } else {
+      // Move to next question or complete
       if (currentIndex + 1 < questions.length) {
         setCurrentIndex((prev) => prev + 1);
         setSelectedAnswerId(null);
@@ -131,21 +154,21 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
   if (loading) {
     return (
       <div
-        className="flex flex-col items-center justify-center px-6 py-12"
+        className="flex flex-col items-center justify-center px-6 py-12 text-center"
         style={{ minHeight: 600 }}
       >
-        <div className="w-12 h-12 rounded-full border-4 border-[#B3D59F] border-t-transparent animate-spin mb-4" />
+        <div className="w-10 h-10 border-4 border-[#B3D59F] border-t-[#3D6B2A] rounded-full animate-spin mb-4" />
         <p
-          className="text-[14px] font-bold text-[#1A2816]"
+          className="text-[14px] text-[#6B7C6B] font-bold"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          Loading Challenge Questions...
+          {t("lobby.loadingQuestions", "Loading Questions...")}
         </p>
       </div>
     );
   }
 
-  if (errorMsg || questions.length === 0) {
+  if (questions.length === 0) {
     return (
       <div
         className="flex flex-col items-center justify-center px-6 py-12 text-center"
@@ -158,20 +181,20 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
           className="text-[18px] font-extrabold text-[#1A2816] mb-1"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          No Questions Found
+          {t("quizzes.oops", "Oops!")}
         </h3>
         <p
           className="text-[13px] text-[#6B7C6B] mb-5 max-w-[260px]"
           style={{ fontFamily: "'Nunito', sans-serif" }}
         >
-          {errorMsg || "No questions have been attached to this lobby yet."}
+          {errorMsg || t("lobby.noQuestionsFound", "No questions found for this challenge module.")}
         </p>
         <button
           onClick={onFinish}
-          className="px-6 py-3 rounded-xl bg-[#B3D59F] text-[#1A3312] font-bold text-[14px]"
+          className="px-6 py-3 rounded-xl bg-[#B3D59F] text-[#1A3312] font-bold text-[14px] cursor-pointer"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          Return to Dashboard
+          {t("quizzes.goBack", "Go Back")}
         </button>
       </div>
     );
@@ -191,20 +214,20 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
           className="text-[11px] font-extrabold text-[#3D6B2A] bg-[#E8F5E2] border border-[#B3D59F] px-3 py-1 rounded-full uppercase tracking-wider mb-2"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          Challenge Complete
+          {t("quizzes.summaryTitle", "Quiz Complete")}
         </span>
 
         <h3
           className="text-[24px] font-extrabold text-[#1A2816] mb-1"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          Great Job!
+          {t("lobby.greatJob", "Great Job!")}
         </h3>
         <p
           className="text-[13px] text-[#6B7C6B] mb-6"
           style={{ fontFamily: "'Nunito', sans-serif" }}
         >
-          You have completed all questions in this session.
+          {t("lobby.completedAll", "You have completed all questions in this session.")}
         </p>
 
         {/* Score Card */}
@@ -213,22 +236,22 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
             className="text-[12px] font-bold text-[#6B7C6B] uppercase tracking-wider mb-1"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            Total Score Earned
+            {t("lobby.totalScoreEarned", "Total Score Earned")}
           </p>
           <p
             className="text-[36px] font-extrabold text-[#1A3312]"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            +{score} <span className="text-[16px] text-[#3D6B2A]">XP</span>
+            +{score} <span className="text-[16px] text-[#3D6B2A]">{t("common.points", "PTS")}</span>
           </p>
         </div>
 
         <button
           onClick={onFinish}
-          className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[16px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all"
+          className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[16px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all cursor-pointer"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          Finish & Return to Dashboard
+          {t("lobby.finishDashboard", "Finish & Return to Dashboard")}
         </button>
       </div>
     );
@@ -246,18 +269,18 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
               className="text-[10px] font-bold text-[#3D6B2A] uppercase tracking-wider block"
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
-              {lobby?.school || "Challenge Session"}
+              {lobby?.school || t("lobby.defaultSession", "Challenge Session")}
             </span>
             <p
               className="text-[12px] font-bold text-[#1A2816]"
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
-              Question {currentIndex + 1} of {questions.length}
+              {t("quizzes.questionOf", "Question")} {currentIndex + 1} {t("quizzes.of", "of")} {questions.length}
             </p>
           </div>
 
           <div className="bg-[#F0F8EC] border border-[#D4ECC5] text-[#3D6B2A] px-2.5 py-0.5 rounded-lg text-[11px] font-extrabold">
-            +{currentQ.points || 100} XP
+            +{currentQ.points || 100} {t("common.points", "PTS")}
           </div>
         </div>
 
@@ -277,7 +300,7 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
             className="text-[9px] font-extrabold text-[#3D6B2A] bg-white border border-[#B3D59F] px-1.5 py-0.5 rounded uppercase tracking-wider inline-block mb-1.5"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            {currentQ.category?.toUpperCase() || "FIRST AID"}
+            {currentQ.category?.toUpperCase() || t("quizzes.quizBadge", "QUIZ")}
           </span>
           <h3
             className="text-[14px] font-bold text-[#1A2816] leading-tight"
@@ -319,7 +342,7 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
                 type="button"
                 onClick={() => handleSelectOption(ans.id)}
                 disabled={isAnswerSubmitted}
-                className={`w-full p-2.5 rounded-xl border text-left flex items-center gap-2.5 transition-all ${cardStyle}`}
+                className={`w-full p-2.5 rounded-xl border text-left flex items-center gap-2.5 transition-all cursor-pointer ${cardStyle}`}
               >
                 <div
                   className={`w-7 h-7 rounded-lg font-bold flex items-center justify-center shrink-0 text-[12px] transition-colors ${badgeStyle}`}
@@ -346,14 +369,14 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
       <button
         onClick={handleSubmitOrNext}
         disabled={!selectedAnswerId}
-        className="w-full py-3.5 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[15px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 mt-2"
+        className="w-full py-3.5 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[15px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 mt-2 cursor-pointer"
         style={{ fontFamily: "'Lexend', sans-serif" }}
       >
         {isAnswerSubmitted
           ? currentIndex + 1 < questions.length
-            ? "Next Question"
-            : "View Results"
-          : "Submit Answer"}
+            ? t("quizzes.nextQuestion", "Next Question")
+            : t("quizzes.seeResults", "See Results")
+          : t("lobby.submitAnswer", "Submit Answer")}
         <ArrowRight size={18} strokeWidth={2.5} />
       </button>
     </div>

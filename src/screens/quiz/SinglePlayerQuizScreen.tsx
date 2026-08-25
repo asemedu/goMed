@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { X, Clock, AlertCircle } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import { QuizSummaryModal } from "./components/QuizSummaryModal";
+import { useLanguage } from "../../lib/i18n/LanguageContext";
 
 interface SinglePlayerQuizScreenProps {
   category: string;
@@ -9,6 +10,7 @@ interface SinglePlayerQuizScreenProps {
 }
 
 export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizScreenProps) {
+  const { t, language } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -35,7 +37,8 @@ export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizS
       setLoading(true);
       setErrorMsg("");
       try {
-        const { data, error } = await supabase
+        // Query questions matching active user language
+        let { data, error } = await supabase
           .from("questions")
           .select(`
             id,
@@ -43,6 +46,7 @@ export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizS
             category,
             points,
             time_limit_seconds,
+            language,
             answers (
               id,
               answer_text,
@@ -50,12 +54,35 @@ export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizS
               order_index
             )
           `)
-          .eq("category", category);
+          .eq("category", category)
+          .eq("language", language);
 
         if (error) throw error;
         
+        // Fallback: If no questions found for active language, fetch any for this category
         if (!data || data.length === 0) {
-          setErrorMsg("No questions found for this quiz. Please run the seed_quizzes.sql script in your Supabase dashboard.");
+          const fallbackRes = await supabase
+            .from("questions")
+            .select(`
+              id,
+              question_text,
+              category,
+              points,
+              time_limit_seconds,
+              language,
+              answers (
+                id,
+                answer_text,
+                is_correct,
+                order_index
+              )
+            `)
+            .eq("category", category);
+          data = fallbackRes.data;
+        }
+
+        if (!data || data.length === 0) {
+          setErrorMsg(t("quizzes.noQuestions", "No questions found for this quiz. Please make sure questions are seeded in Supabase."));
         } else {
           // Sort answers
           data.forEach((q) => {
@@ -66,14 +93,14 @@ export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizS
           setQuestions(data);
         }
       } catch (err: any) {
-        setErrorMsg(err.message || "Failed to load questions.");
+        setErrorMsg(err.message || t("common.error", "Failed to load questions."));
       } finally {
         setLoading(false);
       }
     };
 
     fetchQuestions();
-  }, [category]);
+  }, [category, language]);
 
   // Start timer when a new question mounts
   useEffect(() => {
@@ -151,7 +178,7 @@ export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizS
     return (
       <div className="flex flex-col items-center justify-center px-6 py-12 h-full min-h-[600px]">
         <div className="w-12 h-12 rounded-full border-4 border-[#B3D59F] border-t-transparent animate-spin mb-4" />
-        <p className="text-[14px] font-bold text-[#1A2816]">Loading Quiz...</p>
+        <p className="text-[14px] font-bold text-[#1A2816]">{t("quizzes.loading", "Loading Quiz...")}</p>
       </div>
     );
   }
@@ -162,13 +189,13 @@ export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizS
         <div className="w-14 h-14 rounded-2xl bg-[#FFF4F6] text-[#C0384E] flex items-center justify-center mb-3">
           <AlertCircle size={28} />
         </div>
-        <h3 className="text-[18px] font-extrabold text-[#1A2816] mb-1">Oops!</h3>
+        <h3 className="text-[18px] font-extrabold text-[#1A2816] mb-1">{t("quizzes.oops", "Oops!")}</h3>
         <p className="text-[13px] text-[#6B7C6B] mb-5 max-w-[260px]">{errorMsg}</p>
         <button
           onClick={onFinish}
-          className="px-6 py-3 rounded-xl bg-[#B3D59F] text-[#1A3312] font-bold text-[14px]"
+          className="px-6 py-3 rounded-xl bg-[#B3D59F] text-[#1A3312] font-bold text-[14px] cursor-pointer"
         >
-          Go Back
+          {t("quizzes.goBack", "Go Back")}
         </button>
       </div>
     );
@@ -186,10 +213,10 @@ export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizS
           <div className="flex items-center justify-between mb-3">
             <div>
               <span className="text-[10px] font-bold text-[#3D6B2A] uppercase tracking-wider block">
-                {category.toUpperCase()} QUIZ
+                {category.toUpperCase()} {t("quizzes.quizBadge", "QUIZ")}
               </span>
               <p className="text-[13px] font-extrabold text-[#1A2816]">
-                Question {currentIndex + 1} of {questions.length}
+                {t("quizzes.questionOf", "Question")} {currentIndex + 1} {t("quizzes.of", "of")} {questions.length}
               </p>
             </div>
 
@@ -220,16 +247,16 @@ export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizS
                 {selectedAnswerId ? (
                   currentQ.answers.find((a: any) => a.id === selectedAnswerId)?.is_correct ? (
                     <span className="text-[11px] font-bold bg-[#E8F5E2] text-[#3D6B2A] px-2 py-1 rounded-md">
-                      Correct! +{currentQ.points + Math.round(currentQ.points * (timeLeft / maxTime))} XP
+                      {t("quizzes.correct", "Correct!")} +{currentQ.points + Math.round(currentQ.points * (timeLeft / maxTime))} {t("common.points", "PTS")}
                     </span>
                   ) : (
                     <span className="text-[11px] font-bold bg-[#FFF0F2] text-[#C0384E] px-2 py-1 rounded-md">
-                      Incorrect
+                      {t("quizzes.incorrect", "Incorrect")}
                     </span>
                   )
                 ) : (
                   <span className="text-[11px] font-bold bg-[#FFF0F2] text-[#C0384E] px-2 py-1 rounded-md">
-                    Time's Up!
+                    {t("quizzes.timesUp", "Time's Up!")}
                   </span>
                 )}
               </div>
@@ -260,7 +287,7 @@ export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizS
                   key={ans.id || idx}
                   onClick={() => handleSelectOption(ans.id)}
                   disabled={isAnswerSubmitted}
-                  className={`w-full p-4 rounded-2xl border-2 text-left flex items-center gap-3 transition-all ${cardStyle}`}
+                  className={`w-full p-4 rounded-2xl border-2 text-left flex items-center gap-3 transition-all cursor-pointer ${cardStyle}`}
                 >
                   <div className={`w-8 h-8 rounded-xl font-bold flex items-center justify-center shrink-0 text-[13px] transition-colors ${badgeStyle}`}>
                     {optionLabels[idx] || idx + 1}
@@ -278,9 +305,9 @@ export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizS
         {isAnswerSubmitted && (
           <button
             onClick={handleNext}
-            className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[16px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all flex items-center justify-center mt-2 shrink-0 animate-fadeIn"
+            className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[16px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all flex items-center justify-center mt-2 shrink-0 animate-fadeIn cursor-pointer"
           >
-            {currentIndex + 1 < questions.length ? "Next Question" : "See Results"}
+            {currentIndex + 1 < questions.length ? t("quizzes.nextQuestion", "Next Question") : t("quizzes.seeResults", "See Results")}
           </button>
         )}
       </div>

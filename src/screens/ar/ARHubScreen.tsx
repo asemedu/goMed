@@ -10,66 +10,50 @@ import {
   ArrowRight,
   X,
 } from "lucide-react";
+import { useLanguage } from "../../lib/i18n/LanguageContext";
 
 interface ARHubScreenProps {
   onSelectMovement: (movement: any, mode: "learn" | "try") => void;
 }
 
 export function ARHubScreen({ onSelectMovement }: ARHubScreenProps) {
+  const { t } = useLanguage();
   const [activeMovementModal, setActiveMovementModal] = useState<any | null>(
     null
   );
 
-  const movements = [
+  const rawMovements = [
     {
       id: "cpr",
-      title: "Cardiopulmonary Resuscitation (CPR)",
-      subtitle: "Chest compressions & rhythm control",
-      category: "Basic Life Support",
-      stats: "100-120 BPM · 5-6 cm Depth",
-      difficulty: "High Priority",
       icon: Heart,
       has3D: true,
-      details:
-        "Perform rhythmic chest compressions directly on the center of the chest. Maintain locked elbows and vertical shoulder alignment to generate effective blood flow.",
     },
     {
       id: "heimlich",
-      title: "Heimlich Maneuver",
-      subtitle: "Abdominal thrusts for airway obstruction",
-      category: "Choking Emergency",
-      stats: "Upward & Inward Thrusts",
-      difficulty: "Essential",
       icon: Shield,
       has3D: false,
-      details:
-        "Stand behind the patient, place a fist above the navel, and deliver quick, inward-and-upward abdominal thrusts to dislodge the foreign object.",
     },
     {
       id: "recovery",
-      title: "Recovery Position (PLS)",
-      subtitle: "Lateral alignment for breathing victim",
-      category: "Patient Positioning",
-      stats: "Clear Airway & Stable Base",
-      difficulty: "Core Skill",
       icon: Activity,
       has3D: false,
-      details:
-        "Roll an unresponsive breathing patient onto their side to keep their airway open and prevent aspiration of fluids.",
     },
     {
       id: "tourniquet",
-      title: "Pressure Dressing & Bandaging",
-      subtitle: "Direct wound compression technique",
-      category: "Trauma & Hemorrhage",
-      stats: "Continuous Direct Force",
-      difficulty: "Vital",
       icon: Layers,
       has3D: false,
-      details:
-        "Apply firm, uninterrupted pressure with both hands directly over the bleeding site using sterile gauze or a pressure dressing.",
     },
   ];
+
+  const movements = rawMovements.map((m) => ({
+    ...m,
+    title: t(`ar.movements.${m.id}.title`),
+    subtitle: t(`ar.movements.${m.id}.subtitle`),
+    category: t(`ar.movements.${m.id}.category`),
+    stats: t(`ar.movements.${m.id}.stats`),
+    difficulty: t(`ar.movements.${m.id}.difficulty`),
+    details: t(`ar.movements.${m.id}.details`),
+  }));
 
   return (
     <div className="flex flex-col px-5 py-5 pb-24" style={{ minHeight: 740 }}>
@@ -80,23 +64,23 @@ export function ARHubScreen({ onSelectMovement }: ARHubScreenProps) {
             className="text-[11px] font-bold text-[#3D6B2A] uppercase tracking-wider block"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            AR & Computer Vision
+            {t("ar.badge", "AR & Computer Vision")}
           </span>
           <span className="bg-[#B3D59F] text-[#1A3312] text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
-            Interactive
+            {t("ar.interactive", "Interactive")}
           </span>
         </div>
         <h2
           className="text-[22px] font-extrabold text-[#1A2816]"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          AR Medical Movements
+          {t("ar.title", "AR Medical Movements")}
         </h2>
         <p
           className="text-[13px] text-[#6B7C6B] mt-0.5"
           style={{ fontFamily: "'Nunito', sans-serif" }}
         >
-          Learn 3D animations and analyze your own body movements with AI
+          {t("ar.subtitle", "Learn 3D animations and analyze your own body movements with AI")}
         </p>
       </div>
 
@@ -109,17 +93,17 @@ export function ARHubScreen({ onSelectMovement }: ARHubScreenProps) {
               className="text-[11px] font-bold text-[#B3D59F] uppercase tracking-wider"
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
-              AI Movement Analysis
+              {t("ar.aiAnalysis", "AI Movement Analysis")}
             </span>
           </div>
           <h3
             className="text-[16px] font-extrabold mb-1"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            Real-Time Posture Feedback
+            {t("ar.realTimePosture", "Real-Time Posture Feedback")}
           </h3>
           <p className="text-[12px] text-white/80 leading-relaxed max-w-[260px]">
-            Select any medical procedure below to see it in 3D or practice with your camera.
+            {t("ar.bannerDesc", "Select any medical procedure below to see it in 3D or practice with your camera.")}
           </p>
         </div>
         <div className="absolute right-3 -bottom-2 text-[#B3D59F]/15">
@@ -180,7 +164,7 @@ export function ARHubScreen({ onSelectMovement }: ARHubScreenProps) {
                   className="text-[11px] font-extrabold text-[#3D6B2A] bg-[#F0F8EC] border border-[#D4ECC5] px-2.5 py-1 rounded-xl"
                   style={{ fontFamily: "'Lexend', sans-serif" }}
                 >
-                  Options →
+                  {t("ar.options", "Options →")}
                 </span>
               </div>
             </div>
@@ -197,7 +181,7 @@ export function ARHubScreen({ onSelectMovement }: ARHubScreenProps) {
           >
             <button
               onClick={() => setActiveMovementModal(null)}
-              className="absolute top-4 right-4 text-[#6B7C6B] hover:text-[#1A2816] p-1.5 rounded-full hover:bg-[#F0F5EE]"
+              className="absolute top-4 right-4 text-[#6B7C6B] hover:text-[#1A2816] p-1.5 rounded-full hover:bg-[#F0F5EE] cursor-pointer"
               aria-label="Close"
             >
               <X size={18} />
@@ -231,7 +215,7 @@ export function ARHubScreen({ onSelectMovement }: ARHubScreenProps) {
                   setActiveMovementModal(null);
                   onSelectMovement(m, "learn");
                 }}
-                className="w-full p-4 rounded-2xl bg-[#F0F8EC] border-2 border-[#B3D59F] text-[#1A3312] flex items-center justify-between hover:bg-[#E2F0DC] active:scale-[0.98] transition-all shadow-sm"
+                className="w-full p-4 rounded-2xl bg-[#F0F8EC] border-2 border-[#B3D59F] text-[#1A3312] flex items-center justify-between hover:bg-[#E2F0DC] active:scale-[0.98] transition-all shadow-sm cursor-pointer"
               >
                 <div className="flex items-center gap-3 text-left">
                   <div className="w-10 h-10 rounded-xl bg-[#B3D59F] flex items-center justify-center text-[#1A3312] shrink-0 shadow-sm">
@@ -242,10 +226,10 @@ export function ARHubScreen({ onSelectMovement }: ARHubScreenProps) {
                       className="text-[14px] font-extrabold"
                       style={{ fontFamily: "'Lexend', sans-serif" }}
                     >
-                      1. Learn (3D & AR Demo)
+                      {t("ar.learnTitle", "1. Learn (3D & AR Demo)")}
                     </p>
                     <p className="text-[11px] text-[#6B7C6B]">
-                      Inspect animated 3D model & step guide
+                      {t("ar.learnDesc", "Inspect animated 3D model & step guide")}
                     </p>
                   </div>
                 </div>
@@ -258,7 +242,7 @@ export function ARHubScreen({ onSelectMovement }: ARHubScreenProps) {
                   setActiveMovementModal(null);
                   onSelectMovement(m, "try");
                 }}
-                className="w-full p-4 rounded-2xl bg-white border border-[#D8E8D0] text-[#1A2816] flex items-center justify-between hover:bg-[#F7FBF5] active:scale-[0.98] transition-all shadow-sm"
+                className="w-full p-4 rounded-2xl bg-white border border-[#D8E8D0] text-[#1A2816] flex items-center justify-between hover:bg-[#F7FBF5] active:scale-[0.98] transition-all shadow-sm cursor-pointer"
               >
                 <div className="flex items-center gap-3 text-left">
                   <div className="w-10 h-10 rounded-xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center text-[#3D6B2A] shrink-0">
@@ -270,14 +254,14 @@ export function ARHubScreen({ onSelectMovement }: ARHubScreenProps) {
                         className="text-[14px] font-extrabold"
                         style={{ fontFamily: "'Lexend', sans-serif" }}
                       >
-                        2. Try it Out
+                        {t("ar.tryTitle", "2. Try it Out")}
                       </p>
                       <span className="text-[8px] font-extrabold bg-[#B3D59F] text-[#1A3312] px-1.5 py-0.5 rounded uppercase">
                         AI
                       </span>
                     </div>
                     <p className="text-[11px] text-[#6B7C6B]">
-                      MediaPipe camera posture analysis
+                      {t("ar.tryDesc", "MediaPipe camera posture analysis")}
                     </p>
                   </div>
                 </div>

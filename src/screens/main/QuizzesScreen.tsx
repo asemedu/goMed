@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Heart, Shield, Activity, BookOpen, HelpCircle, X, Zap, ArrowRight } from "lucide-react";
+import { useLanguage } from "../../lib/i18n/LanguageContext";
 
 interface QuizzesScreenProps {
   onExploreCPR: () => void;
@@ -7,16 +8,13 @@ interface QuizzesScreenProps {
 }
 
 export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps) {
+  const { t } = useLanguage();
   const [selectedModule, setSelectedModule] = useState<any | null>(null);
 
-  const modules = [
+  const rawModules = [
     {
       id: "siguranta",
-      title: "1. Siguranță, Legislație și Baze",
-      categoryName: "Siguranță & Legislație",
-      desc: "Norme legale, siguranța salvatorului și lanțul supraviețuirii.",
       icon: Shield,
-      tag: "QUIZ",
       questionCount: 5,
       xp: "+70 XP",
       time: "5 min",
@@ -24,11 +22,7 @@ export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps
     },
     {
       id: "evaluare_112",
-      title: "2. Apelul 112 & Evaluarea (A.B.C.)",
-      categoryName: "Evaluare & Apel 112",
-      desc: "Protocolul PAS, verificarea respirației și eliberarea căilor aeriene.",
       icon: BookOpen,
-      tag: "QUIZ",
       questionCount: 4,
       xp: "+70 XP",
       time: "5 min",
@@ -36,11 +30,7 @@ export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps
     },
     {
       id: "rcp_adulti",
-      title: "3. Resuscitarea (RCP) - Adulți",
-      categoryName: "Resuscitare Adulți",
-      desc: "Compresii toracice, frecvență, adâncime și raportul 30:2.",
       icon: Heart,
-      tag: "QUIZ",
       questionCount: 5,
       xp: "+110 XP",
       time: "6 min",
@@ -48,83 +38,55 @@ export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps
     },
     {
       id: "aed",
-      title: "4. Defibrilatorul Extern Automat (AED)",
-      categoryName: "Defibrilare",
-      desc: "Utilizarea corectă a defibrilatorului și siguranța șocului electric.",
       icon: Activity,
-      tag: "QUIZ",
       questionCount: 4,
       xp: "+60 XP",
       time: "4 min",
       status: "Available",
     },
     {
-      id: "pls",
-      title: "5. Poziția Laterală de Siguranță (PLS)",
-      categoryName: "Prim Ajutor",
-      desc: "Protejarea căilor aeriene la pacientul inconștient care respiră.",
-      icon: Shield,
-      tag: "QUIZ",
+      id: "rcp_copii",
+      icon: Heart,
       questionCount: 4,
+      xp: "+90 XP",
+      time: "4 min",
+      status: "Available",
+    },
+    {
+      id: "obstructie",
+      icon: Activity,
+      questionCount: 5,
       xp: "+100 XP",
       time: "5 min",
       status: "Available",
     },
     {
-      id: "dezobstructie",
-      title: "6. Dezobstrucția Căilor Aeriene",
-      categoryName: "Dezobstrucție",
-      desc: "Manevra Heimlich, lovituri interscapulare și cazuri speciale.",
-      icon: HelpCircle,
-      tag: "QUIZ",
-      questionCount: 5,
-      xp: "+110 XP",
-      time: "6 min",
-      status: "Available",
-    },
-    {
-      id: "copii_sugari",
-      title: "7. Primul Ajutor la Copii & Sugari",
-      categoryName: "Pediatrie",
-      desc: "Particularități de resuscitare și dezobstrucție la bebeluși.",
-      icon: Heart,
-      tag: "QUIZ",
+      id: "pls",
+      icon: BookOpen,
       questionCount: 4,
-      xp: "+110 XP",
-      time: "5 min",
+      xp: "+60 XP",
+      time: "4 min",
       status: "Available",
     },
     {
-      id: "urgente_medicale",
-      title: "8. Urgențe Medicale (Anafilaxie, Leșin, Epilepsie)",
-      categoryName: "Urgențe Medicale",
-      desc: "Prim ajutor în caz de anafilaxie, leșin și convulsii epileptice.",
-      icon: Activity,
-      tag: "QUIZ",
-      questionCount: 5,
-      xp: "+80 XP",
-      time: "5 min",
-      status: "Available",
-    },
-    {
-      id: "trauma",
-      title: "9. Traume & Hemoragii",
-      categoryName: "Traumatologie",
-      desc: "Controlul sângerărilor arteriale, presiune directă și garou.",
+      id: "hemoragii",
       icon: Shield,
-      tag: "QUIZ",
+      questionCount: 5,
+      xp: "+110 XP",
+      time: "5 min",
+      status: "Available",
+    },
+    {
+      id: "traumatisme",
+      icon: Activity,
       questionCount: 4,
       xp: "+80 XP",
-      time: "5 min",
+      time: "4 min",
       status: "Available",
     },
     {
       id: "arsuri",
-      title: "10. Arsuri (Termice, Chimice, Electrice)",
-      categoryName: "Arsuri",
-      desc: "Regula de 10, răcire cu apă și măsuri de prim ajutor.",
       icon: BookOpen,
-      tag: "QUIZ",
       questionCount: 5,
       xp: "+80 XP",
       time: "5 min",
@@ -132,17 +94,21 @@ export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps
     },
     {
       id: "intoxicatii",
-      title: "11. Urgențe de Mediu & Intoxicații",
-      categoryName: "Mediu & Toxice",
-      desc: "Hipotermie, insolație gravă și intoxicații cu monoxid de carbon.",
       icon: HelpCircle,
-      tag: "QUIZ",
       questionCount: 5,
       xp: "+90 XP",
       time: "5 min",
       status: "Available",
     },
   ];
+
+  const modules = rawModules.map((m) => ({
+    ...m,
+    title: t(`quizzes.modules.${m.id}.title`),
+    categoryName: t(`quizzes.modules.${m.id}.categoryName`),
+    desc: t(`quizzes.modules.${m.id}.desc`),
+    tag: t("quizzes.quizBadge", "QUIZ"),
+  }));
 
   return (
     <div className="flex flex-col px-5 py-5" style={{ minHeight: 740 }}>
@@ -152,19 +118,19 @@ export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps
           className="text-[11px] font-bold text-[#3D6B2A] uppercase tracking-wider block"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          Test Your Knowledge
+          {t("quizzes.badge", "Test Your Knowledge")}
         </span>
         <h2
           className="text-[22px] font-extrabold text-[#1A2816]"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          Quizzes & Challenges
+          {t("quizzes.title", "Quizzes & Challenges")}
         </h2>
         <p
           className="text-[13px] text-[#6B7C6B] mt-0.5"
           style={{ fontFamily: "'Nunito', sans-serif" }}
         >
-          Earn XP by completing time-based clinical quizzes.
+          {t("quizzes.subtitle", "Earn XP by completing time-based clinical quizzes.")}
         </p>
       </div>
 
@@ -235,10 +201,10 @@ export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps
                 >
                   {mod.status === "Available" ? (
                     <>
-                      <HelpCircle size={14} /> Start Quiz
+                      <HelpCircle size={14} /> {t("quizzes.startQuiz", "Start Quiz")}
                     </>
                   ) : (
-                    "Locked"
+                    t("quizzes.locked", "Locked")
                   )}
                 </span>
               </div>
@@ -257,7 +223,7 @@ export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps
           <div className="relative w-full max-w-[340px] bg-white rounded-3xl p-6 shadow-2xl animate-slideUp">
             <button
               onClick={() => setSelectedModule(null)}
-              className="absolute top-5 right-5 text-[#6B7C6B] hover:text-[#1A2816] transition-colors"
+              className="absolute top-5 right-5 text-[#6B7C6B] hover:text-[#1A2816] transition-colors cursor-pointer"
             >
               <X size={22} />
             </button>
@@ -286,7 +252,7 @@ export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps
             <div className="grid grid-cols-2 gap-2.5 mb-6">
               <div className="bg-[#F7FBF5] border border-[#E8EDE6] rounded-2xl p-3 text-center">
                 <div className="flex items-center justify-center gap-1 text-[#6B7C6B] text-[11px] font-bold mb-0.5">
-                  <HelpCircle size={13} /> Întrebări
+                  <HelpCircle size={13} /> {t("quizzes.questions", "Questions")}
                 </div>
                 <p
                   className="text-[16px] font-extrabold text-[#1A2816]"
@@ -298,7 +264,7 @@ export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps
 
               <div className="bg-[#F7FBF5] border border-[#E8EDE6] rounded-2xl p-3 text-center">
                 <div className="flex items-center justify-center gap-1 text-[#3D6B2A] text-[11px] font-bold mb-0.5">
-                  <Zap size={13} /> Recompensă
+                  <Zap size={13} /> {t("quizzes.reward", "Reward")}
                 </div>
                 <p
                   className="text-[16px] font-extrabold text-[#3D6B2A]"
@@ -318,7 +284,7 @@ export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps
               className="w-full py-3.5 rounded-xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[15px] hover:bg-[#9DC885] active:scale-[0.98] transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
-              Start Quiz <ArrowRight size={16} strokeWidth={2.5} />
+              {t("quizzes.startQuiz", "Start Quiz")} <ArrowRight size={16} strokeWidth={2.5} />
             </button>
           </div>
         </div>

@@ -9,17 +9,24 @@ import { CPRSummaryModal } from './components/CPRSummaryModal';
 import { PoseLandmarkerResult } from '@mediapipe/tasks-vision';
 import { cprMetrics } from '../../services/cprMetricsCalculator';
 import { audioCoach } from '../../services/audioCoachQueue';
+import { useLanguage } from '../../lib/i18n/LanguageContext';
 
 interface Props {
   navigate: (screen: Screen) => void;
 }
 
 export function CPRPracticeScreen({ navigate }: Props) {
+  const { t, language } = useLanguage();
   const { videoRef, startStream, stopStream, error, isStreaming } = useCameraStream();
   const [hasStarted, setHasStarted] = useState(false);
   const [poseResult, setPoseResult] = useState<PoseLandmarkerResult | null>(null);
   const [timeLeft, setTimeLeft] = useState(60);
   const [showSummary, setShowSummary] = useState(false);
+
+  // Sync language with audio coach
+  useEffect(() => {
+    audioCoach.setLanguage(language);
+  }, [language]);
 
   // Compute metrics live
   const liveMetrics = useMemo(() => {
@@ -45,13 +52,12 @@ export function CPRPracticeScreen({ navigate }: Props) {
   useEffect(() => {
     if (!hasStarted || showSummary) return;
     
-    audioCoach.speak("Begin CPR", true);
+    audioCoach.play("begin_cpr", true);
     
     const interval = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(interval);
-          audioCoach.speak("Stop CPR. Session complete.", true);
           setShowSummary(true);
           return 0;
         }
@@ -62,21 +68,28 @@ export function CPRPracticeScreen({ navigate }: Props) {
     return () => clearInterval(interval);
   }, [hasStarted, showSummary]);
 
+  // Trigger stop CPR speech exactly once when session finishes
+  useEffect(() => {
+    if (showSummary) {
+      audioCoach.play("session_complete", true);
+    }
+  }, [showSummary]);
+
   // Audio Coaching Loop
   useEffect(() => {
     if (!hasStarted || !liveMetrics || timeLeft === 0 || showSummary) return;
 
     if (liveMetrics.isTooSlow) {
-      audioCoach.speak("Push faster");
+      audioCoach.play("push_faster");
     } else if (liveMetrics.isTooFast) {
-      audioCoach.speak("Slow down");
+      audioCoach.play("slow_down");
     } else if (liveMetrics.isGoodPace && liveMetrics.bpm > 0) {
       // Occasional positive reinforcement (higher throttle to not be annoying)
-      audioCoach.speak("Good pace, keep it up", false, 10000);
+      audioCoach.play("good_pace", false, 10000);
     }
 
     if (!liveMetrics.isArmsLocked) {
-      audioCoach.speak("Lock your elbows");
+      audioCoach.play("lock_elbows");
     }
   }, [liveMetrics, hasStarted, timeLeft, showSummary]);
 
@@ -96,13 +109,13 @@ export function CPRPracticeScreen({ navigate }: Props) {
         
         {error ? (
           <div className="p-6 bg-red-900/50 rounded-xl border border-red-500 max-w-sm text-center z-50">
-            <p className="text-red-200 mb-2">Camera Error</p>
+            <p className="text-red-200 mb-2">{t("cpr.cameraError", "Camera Error")}</p>
             <p className="text-sm">{error}</p>
             <button 
               onClick={startStream}
-              className="mt-4 px-4 py-2 bg-white text-red-900 rounded-lg font-bold w-full"
+              className="mt-4 px-4 py-2 bg-white text-red-900 rounded-lg font-bold w-full cursor-pointer"
             >
-              Retry Camera
+              {t("cpr.retryCamera", "Retry Camera")}
             </button>
           </div>
         ) : (

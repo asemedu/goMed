@@ -23,8 +23,9 @@ import { LobbyScreen } from "./screens/lobby/LobbyScreen";
 import { QuizScreen } from "./screens/lobby/QuizScreen";
 import { ProfileScreen } from "./screens/main/ProfileScreen";
 import { CPRPracticeScreen } from "./screens/cpr/CPRPracticeScreen";
+import { LanguageProvider } from "./lib/i18n/LanguageContext";
 
-export default function App() {
+function AppContent() {
   const [selectedQuizCategory, setSelectedQuizCategory] = useState<string>("bls");
   const [historyStack, setHistoryStack] = useState<Screen[]>(() => {
     // Check if user has an active cached profile and saved screen
@@ -381,5 +382,13 @@ export default function App() {
         }}
       />
     </>
+  );
+}
+
+export default function App() {
+  return (
+    <LanguageProvider>
+      <AppContent />
+    </LanguageProvider>
   );
 }

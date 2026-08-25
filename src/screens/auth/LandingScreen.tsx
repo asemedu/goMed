@@ -1,11 +1,21 @@
 import React from "react";
 import { Heart, ArrowRight, Shield, Users, Star } from "lucide-react";
+import { useLanguage } from "../../lib/i18n/LanguageContext";
 
 interface LandingScreenProps {
   onNext: () => void;
 }
 
 export function LandingScreen({ onNext }: LandingScreenProps) {
+  const { t } = useLanguage();
+
+  const featurePills = [
+    t("landing.pillGamified", "Gamified Learning"),
+    t("landing.pillXP", "XP & Levels"),
+    t("landing.pillReal", "Real Scenarios"),
+    t("landing.pillCertified", "Certified"),
+  ];
+
   return (
     <div className="flex flex-col" style={{ minHeight: 740 }}>
       <div className="flex-1 flex flex-col items-center justify-center px-7 gap-7 pt-10">
@@ -26,16 +36,16 @@ export function LandingScreen({ onNext }: LandingScreenProps) {
             className="text-[32px] font-extrabold text-[#1A2816] leading-tight mb-3"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            Master First Aid,<br />Save Lives.
+            {t("landing.titlePart1", "Master First Aid,")}<br />{t("landing.titlePart2", "Save Lives.")}
           </h1>
           <p className="text-[15px] text-[#6B7C6B] leading-relaxed" style={{ fontFamily: "'Nunito', sans-serif" }}>
-            Level up your emergency response skills through gamified, real-world training scenarios.
+            {t("landing.subtitle", "Level up your emergency response skills through gamified, real-world training scenarios.")}
           </p>
         </div>
 
         {/* Feature pills */}
         <div className="flex flex-wrap gap-2 justify-center">
-          {["Gamified Learning", "XP & Levels", "Real Scenarios", "Certified"].map((label) => (
+          {featurePills.map((label) => (
             <span
               key={label}
               className="px-3 py-1.5 rounded-full bg-[#F0F8EC] text-[#3D6B2A] text-[12px] font-bold border border-[#C8E8B5]"
@@ -51,10 +61,10 @@ export function LandingScreen({ onNext }: LandingScreenProps) {
       <div className="px-7 pb-4">
         <button
           onClick={onNext}
-          className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[17px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2"
+          className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[17px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          Get Started <ArrowRight size={20} strokeWidth={2.5} />
+          {t("landing.getStarted", "Get Started")} <ArrowRight size={20} strokeWidth={2.5} />
         </button>
       </div>
 
@@ -64,7 +74,7 @@ export function LandingScreen({ onNext }: LandingScreenProps) {
           className="text-center text-[11px] text-[#6B7C6B] mb-3 font-semibold uppercase tracking-widest"
           style={{ fontFamily: "'Nunito', sans-serif" }}
         >
-          Supported by
+          {t("landing.supportedBy", "Supported by")}
         </p>
         <div className="flex items-center justify-center gap-5">
           {[
