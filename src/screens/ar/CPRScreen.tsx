@@ -1,12 +1,14 @@
 import React, { useState, useRef } from "react";
 import "@google/model-viewer";
 import { Play, Pause, ChevronRight } from "lucide-react";
+import { useLanguage } from "../../lib/i18n/LanguageContext";
 
 interface CPRScreenProps {
   onNext: () => void;
 }
 
 export function CPRScreen({ onNext }: CPRScreenProps) {
+  const { t } = useLanguage();
   const [isPlaying, setIsPlaying] = useState(true);
   const modelRef = useRef<any>(null);
 
@@ -32,13 +34,13 @@ export function CPRScreen({ onNext }: CPRScreenProps) {
           className="text-[22px] font-extrabold text-[#1A2816]"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          CPR Motion Study
+          {t("ar.cprMotionTitle", "CPR Motion Study")}
         </h2>
         <p
           className="text-[13px] text-[#6B7C6B] mt-0.5"
           style={{ fontFamily: "'Nunito', sans-serif" }}
         >
-          Interactive 3D Dummy & AR View
+          {t("ar.cprMotionSubtitle", "Interactive 3D Dummy & AR View")}
         </p>
       </div>
 
@@ -48,16 +50,16 @@ export function CPRScreen({ onNext }: CPRScreenProps) {
         <div className="absolute top-4 right-4 z-10">
           <button
             onClick={toggleAnimation}
-            className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-4 py-2 rounded-xl shadow-sm border border-[#E8EDE6] text-[#1A2816] font-bold text-[12px] active:scale-95 transition-all"
+            className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-4 py-2 rounded-xl shadow-sm border border-[#E8EDE6] text-[#1A2816] font-bold text-[12px] active:scale-95 transition-all cursor-pointer"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
             {isPlaying ? (
               <>
-                <Pause size={16} className="text-[#3D6B2A]" /> Pause Anim
+                <Pause size={16} className="text-[#3D6B2A]" /> {t("ar.pauseAnim", "Pause Anim")}
               </>
             ) : (
               <>
-                <Play size={16} className="text-[#3D6B2A]" /> Play Anim
+                <Play size={16} className="text-[#3D6B2A]" /> {t("ar.playAnim", "Play Anim")}
               </>
             )}
           </button>
@@ -83,7 +85,7 @@ export function CPRScreen({ onNext }: CPRScreenProps) {
             className="absolute bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl bg-[#3D6B2A] text-white font-extrabold text-[14px] shadow-lg hover:bg-[#2e5220] active:scale-95 transition-all whitespace-nowrap cursor-pointer z-20"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            View Dummy on Floor (AR)
+            {t("ar.viewArButton", "View Dummy on Floor (AR)")}
           </button>
         </model-viewer>
       </div>
@@ -92,10 +94,10 @@ export function CPRScreen({ onNext }: CPRScreenProps) {
       <div className="p-5 bg-white border-t border-[#E8EDE6]">
         <button
           onClick={onNext}
-          className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[17px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2"
+          className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[17px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          Continue <ChevronRight size={20} strokeWidth={2.5} />
+          {t("common.continue", "Continue")} <ChevronRight size={20} strokeWidth={2.5} />
         </button>
       </div>
     </div>

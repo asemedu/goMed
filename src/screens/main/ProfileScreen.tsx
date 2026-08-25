@@ -10,9 +10,11 @@ import {
   LogOut,
   ArrowLeft,
   Zap,
+  Globe,
 } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import { storage, STORAGE_KEYS } from "../../lib/storage";
+import { useLanguage } from "../../lib/i18n/LanguageContext";
 
 interface ProfileScreenProps {
   onBack: () => void;
@@ -20,6 +22,8 @@ interface ProfileScreenProps {
 }
 
 export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
+  const { language, setLanguage, t } = useLanguage();
+
   const [profile, setProfile] = useState<{
     display_name?: string;
     username?: string;
@@ -104,7 +108,7 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
   const handleSaveDisplayName = async () => {
     const trimmed = editNameValue.trim();
     if (!trimmed) {
-      setFeedbackMsg({ type: "error", text: "Display name cannot be empty." });
+      setFeedbackMsg({ type: "error", text: t("profile.nameEmpty", "Display name cannot be empty.") });
       return;
     }
     if (trimmed === displayName) {
@@ -136,7 +140,7 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
         setIsEditingName(false);
         setFeedbackMsg({
           type: "success",
-          text: "Display name updated successfully!",
+          text: t("profile.nameUpdated", "Display name updated successfully!"),
         });
       }
     } catch (err: any) {
@@ -161,12 +165,12 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
       if (error) throw error;
       setFeedbackMsg({
         type: "success",
-        text: "Password reset link sent! Please check your email inbox.",
+        text: t("profile.resetSent", "Password reset link sent! Please check your email inbox."),
       });
     } catch (err: any) {
       setFeedbackMsg({
         type: "error",
-        text: err.message || "Failed to send password reset email.",
+        text: err.message || t("profile.resetError", "Failed to send password reset email."),
       });
     } finally {
       setSendingReset(false);
@@ -181,13 +185,13 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
           className="text-[22px] font-extrabold text-[#1A2816]"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          My Profile
+          {t("profile.title", "My Profile")}
         </h2>
         <p
           className="text-[13px] text-[#6B7C6B]"
           style={{ fontFamily: "'Nunito', sans-serif" }}
         >
-          Account details & medical training stats
+          {t("profile.subtitle", "Account details & medical training stats")}
         </p>
       </div>
 
@@ -241,13 +245,13 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
               className="text-[11px] font-bold text-[#6B7C6B] uppercase tracking-wider"
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
-              Total Points
+              {t("profile.totalPoints", "Total Points")}
             </p>
             <p
               className="text-[20px] font-extrabold text-[#3D6B2A] mt-0.5"
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
-              {points.toLocaleString()} <span className="text-[12px]">PTS</span>
+              {points.toLocaleString()} <span className="text-[12px]">{t("common.points", "PTS")}</span>
             </p>
           </div>
           <div className="bg-white rounded-2xl p-3 border border-[#E8EDE6] text-center">
@@ -255,7 +259,7 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
               className="text-[11px] font-bold text-[#6B7C6B] uppercase tracking-wider"
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
-              Global Rank
+              {t("profile.globalRank", "Global Rank")}
             </p>
             <p
               className="text-[20px] font-extrabold text-[#1A2816] mt-0.5"
@@ -269,7 +273,7 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
               className="text-[11px] font-bold text-[#6B7C6B] uppercase tracking-wider"
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
-              Activities
+              {t("profile.activities", "Activities")}
             </p>
             <p
               className="text-[20px] font-extrabold text-[#1A2816] mt-0.5"
@@ -283,7 +287,7 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
               className="text-[11px] font-bold text-[#6B7C6B] uppercase tracking-wider"
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
-              Day Streak
+              {t("profile.dayStreak", "Day Streak")}
             </p>
             <p
               className="text-[20px] font-extrabold text-[#1A2816] mt-0.5 flex items-center justify-center gap-1"
@@ -295,13 +299,71 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
         </div>
       </div>
 
+      {/* App Preferences & Language Toggle */}
+      <div className="space-y-3 mb-5">
+        <p
+          className="text-[13px] font-bold text-[#1A2816] px-1"
+          style={{ fontFamily: "'Lexend', sans-serif" }}
+        >
+          {t("profile.preferences", "App Preferences")}
+        </p>
+        <div className="bg-white border border-[#E8EDE6] rounded-2xl p-4 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center text-[#3D6B2A] shrink-0">
+              <Globe size={18} />
+            </div>
+            <div>
+              <p
+                className="text-[11px] text-[#6B7C6B] font-semibold"
+                style={{ fontFamily: "'Nunito', sans-serif" }}
+              >
+                {t("profile.language", "Language")}
+              </p>
+              <p
+                className="text-[14px] font-extrabold text-[#1A2816]"
+                style={{ fontFamily: "'Lexend', sans-serif" }}
+              >
+                {language === "ro" ? "Română (RO)" : "English (EN)"}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center p-1 bg-[#F0F5EE] rounded-xl border border-[#E0EBDC]">
+            <button
+              type="button"
+              onClick={() => setLanguage("ro")}
+              className={`px-3 py-1.5 rounded-lg text-[12px] font-extrabold transition-all cursor-pointer ${
+                language === "ro"
+                  ? "bg-[#B3D59F] text-[#1A3312] shadow-sm"
+                  : "text-[#6B7C6B] hover:text-[#1A2816]"
+              }`}
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              🇷🇴 RO
+            </button>
+            <button
+              type="button"
+              onClick={() => setLanguage("en")}
+              className={`px-3 py-1.5 rounded-lg text-[12px] font-extrabold transition-all cursor-pointer ${
+                language === "en"
+                  ? "bg-[#B3D59F] text-[#1A3312] shadow-sm"
+                  : "text-[#6B7C6B] hover:text-[#1A2816]"
+              }`}
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              🇬🇧 EN
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Account Info Details */}
       <div className="space-y-3 mb-5">
         <p
           className="text-[13px] font-bold text-[#1A2816] px-1"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          Account Information
+          {t("profile.accountInfo", "Account Information")}
         </p>
 
         {/* Display Name Item */}
@@ -315,7 +377,7 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
                 className="text-[11px] text-[#6B7C6B] font-semibold"
                 style={{ fontFamily: "'Nunito', sans-serif" }}
               >
-                Display Name
+                {t("profile.displayName", "Display Name")}
               </p>
               {isEditingName ? (
                 <input
@@ -330,7 +392,7 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
                     }
                   }}
                   autoFocus
-                  placeholder="Enter display name"
+                  placeholder={t("profile.enterDisplayName", "Enter display name")}
                   className="w-full px-2.5 py-1 mt-0.5 rounded-lg border border-[#B3D59F] bg-[#F7FBF5] text-[#1A2816] text-[13px] font-bold focus:outline-none focus:ring-1 focus:ring-[#B3D59F]"
                   style={{ fontFamily: "'Lexend', sans-serif" }}
                 />
@@ -351,10 +413,10 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
                 type="button"
                 onClick={handleSaveDisplayName}
                 disabled={savingName}
-                className="px-3 py-1.5 rounded-xl bg-[#B3D59F] text-[#1A3312] text-[12px] font-extrabold hover:bg-[#9DC885] active:scale-95 transition-all flex items-center gap-1"
+                className="px-3 py-1.5 rounded-xl bg-[#B3D59F] text-[#1A3312] text-[12px] font-extrabold hover:bg-[#9DC885] active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
                 style={{ fontFamily: "'Lexend', sans-serif" }}
               >
-                <Check size={13} strokeWidth={3} /> {savingName ? "..." : "Save"}
+                <Check size={13} strokeWidth={3} /> {savingName ? "..." : t("common.save", "Save")}
               </button>
               <button
                 type="button"
@@ -362,10 +424,10 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
                   setEditNameValue(displayName);
                   setIsEditingName(false);
                 }}
-                className="px-2 py-1.5 text-[#6B7C6B] text-[12px] font-bold hover:text-[#1A2816]"
+                className="px-2 py-1.5 text-[#6B7C6B] text-[12px] font-bold hover:text-[#1A2816] cursor-pointer"
                 style={{ fontFamily: "'Nunito', sans-serif" }}
               >
-                Cancel
+                {t("common.cancel", "Cancel")}
               </button>
             </div>
           ) : (
@@ -375,10 +437,10 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
                 setEditNameValue(displayName);
                 setIsEditingName(true);
               }}
-              className="px-3 py-1.5 rounded-xl bg-[#F0F5EE] text-[#3D6B2A] text-[12px] font-bold hover:bg-[#E2EBE0] active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+              className="px-3 py-1.5 rounded-xl bg-[#F0F5EE] text-[#3D6B2A] text-[12px] font-bold hover:bg-[#E2EBE0] active:scale-95 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
-              <Edit3 size={13} /> Change
+              <Edit3 size={13} /> {t("profile.change", "Change")}
             </button>
           )}
         </div>
@@ -393,7 +455,7 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
               className="text-[11px] text-[#6B7C6B] font-semibold"
               style={{ fontFamily: "'Nunito', sans-serif" }}
             >
-              Username
+              {t("profile.username", "Username")}
             </p>
             <p
               className="text-[14px] font-extrabold text-[#1A2816]"
@@ -414,7 +476,7 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
               className="text-[11px] text-[#6B7C6B] font-semibold"
               style={{ fontFamily: "'Nunito', sans-serif" }}
             >
-              Email Address
+              {t("profile.emailAddress", "Email Address")}
             </p>
             <p
               className="text-[14px] font-extrabold text-[#1A2816] truncate"
@@ -432,7 +494,7 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
           className="text-[13px] font-bold text-[#1A2816] px-1"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          Security
+          {t("profile.security", "Security")}
         </p>
 
         {/* Password Item */}
@@ -446,7 +508,7 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
                 className="text-[11px] text-[#6B7C6B] font-semibold"
                 style={{ fontFamily: "'Nunito', sans-serif" }}
               >
-                Password
+                {t("profile.password", "Password")}
               </p>
               <p className="text-[14px] font-extrabold text-[#1A2816] tracking-widest">
                 ••••••••
@@ -457,10 +519,10 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
             type="button"
             onClick={handleRequestPasswordReset}
             disabled={sendingReset}
-            className="px-3 py-1.5 rounded-xl bg-[#F0F5EE] text-[#3D6B2A] text-[12px] font-bold hover:bg-[#E2EBE0] active:scale-95 transition-all flex items-center gap-1.5 shrink-0 disabled:opacity-60"
+            className="px-3 py-1.5 rounded-xl bg-[#F0F5EE] text-[#3D6B2A] text-[12px] font-bold hover:bg-[#E2EBE0] active:scale-95 transition-all flex items-center gap-1.5 shrink-0 disabled:opacity-60 cursor-pointer"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            <Key size={13} /> {sendingReset ? "Sending..." : "Change"}
+            <Key size={13} /> {sendingReset ? "..." : t("profile.change", "Change")}
           </button>
         </div>
       </div>
@@ -473,19 +535,19 @@ export function ProfileScreen({ onBack, onSignOut }: ProfileScreenProps) {
           storage.clearUserSession();
           onSignOut?.();
         }}
-        className="w-full py-3.5 rounded-2xl bg-white border border-[#FAD2D2] text-[#D93838] font-extrabold text-[15px] hover:bg-[#FFF5F5] active:scale-[0.98] transition-all flex items-center justify-center gap-2 mb-3 shadow-sm"
+        className="w-full py-3.5 rounded-2xl bg-white border border-[#FAD2D2] text-[#D93838] font-extrabold text-[15px] hover:bg-[#FFF5F5] active:scale-[0.98] transition-all flex items-center justify-center gap-2 mb-3 shadow-sm cursor-pointer"
         style={{ fontFamily: "'Lexend', sans-serif" }}
       >
-        <LogOut size={18} strokeWidth={2.2} /> Sign Out of goMed
+        <LogOut size={18} strokeWidth={2.2} /> {t("profile.signOut", "Sign Out of goMed")}
       </button>
 
       {/* Back / Done button */}
       <button
         onClick={onBack}
-        className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[16px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-auto"
+        className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[16px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-auto cursor-pointer"
         style={{ fontFamily: "'Lexend', sans-serif" }}
       >
-        <ArrowLeft size={18} strokeWidth={2.5} /> Back to Dashboard
+        <ArrowLeft size={18} strokeWidth={2.5} /> {t("profile.backToDashboard", "Back to Dashboard")}
       </button>
     </div>
   );

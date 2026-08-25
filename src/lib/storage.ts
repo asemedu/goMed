@@ -6,6 +6,7 @@ export const STORAGE_KEYS = {
   ACTIVE_LOBBY: "gomed_active_lobby",
   COMPLETED_MODULES: "gomed_completed_modules",
   STREAK_INFO: "gomed_streak_info",
+  LANGUAGE: "gomed_language",
 } as const;
 
 export interface CachedProfile {

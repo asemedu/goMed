@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { PoseLandmarkerResult } from '@mediapipe/tasks-vision';
 import { CheckCircle2, AlertCircle, Hand } from 'lucide-react';
+import { useLanguage } from '../../../lib/i18n/LanguageContext';
 
 interface Props {
   poseResult: PoseLandmarkerResult | null;
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export function FramingGuideModal({ poseResult, onFramingComplete }: Props) {
+  const { t } = useLanguage();
   const [phase, setPhase] = useState<'visibility' | 'clasped' | 'done'>('visibility');
   const [holdTimer, setHoldTimer] = useState(0); 
   
@@ -72,19 +74,19 @@ export function FramingGuideModal({ poseResult, onFramingComplete }: Props) {
   const progress = Math.min(100, (holdTimer / HOLD_THRESHOLD) * 100);
 
   // Dynamic UI based on phase
-  let title = "Position Your Phone";
-  let description = "Step back so your shoulders and arms are visible in the frame.";
+  let title = t("cpr.framingTitle1", "Position Your Phone");
+  let description = t("cpr.framingDesc1", "Step back so your shoulders and arms are visible in the frame.");
   let icon = <AlertCircle size={32} className="text-blue-400" />;
   let colorClass = "border-blue-500 bg-blue-500/20";
   
   if (phase === 'clasped') {
-    title = "Clasp Your Hands";
-    description = "Put your palms together like you are about to perform CPR.";
+    title = t("cpr.framingTitle2", "Clasp Your Hands");
+    description = t("cpr.framingDesc2", "Put your palms together like you are about to perform CPR.");
     icon = <Hand size={32} className="text-orange-400" />;
     colorClass = "border-orange-500 bg-orange-500/20";
   } else if (phase === 'done') {
-    title = "Perfect Position!";
-    description = "You are clearly visible. Starting session...";
+    title = t("cpr.framingTitle3", "Perfect Position!");
+    description = t("cpr.framingDesc3", "You are clearly visible. Starting session...");
     icon = <CheckCircle2 size={32} className="text-green-400" />;
     colorClass = "border-green-500 bg-green-500/20";
   }

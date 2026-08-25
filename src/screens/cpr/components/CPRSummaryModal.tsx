@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import { storage, STORAGE_KEYS, CachedProfile } from '../../../lib/storage';
 import { Trophy, Activity, ArrowRight, ShieldCheck, Timer } from 'lucide-react';
+import { useLanguage } from '../../../lib/i18n/LanguageContext';
 
 interface Props {
   stats: {
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function CPRSummaryModal({ stats, onFinish }: Props) {
+  const { t } = useLanguage();
   const [xpEarned, setXpEarned] = useState(0);
   const [saving, setSaving] = useState(true);
   const [mounted, setMounted] = useState(false);
@@ -48,7 +50,7 @@ export function CPRSummaryModal({ stats, onFinish }: Props) {
       if (profile && profile.id) {
         try {
           // Call the new RPC function to securely update XP, streak, and activities count
-          await supabase.rpc('record_activity', { xp_earned: totalXpEarned });
+          await supabase.rpc('record_activity', { xp_earned: totalXpEarned, activity_title: 'CPR Practice Drill' });
           
           // Re-fetch the updated profile to sync local storage accurately
           const { data: updatedProfile } = await supabase
@@ -82,10 +84,10 @@ export function CPRSummaryModal({ stats, onFinish }: Props) {
         </div>
 
         <h2 className="text-2xl font-extrabold text-[#1A3312] mb-1" style={{ fontFamily: "'Lexend', sans-serif" }}>
-          Session Complete!
+          {t("cpr.sessionComplete", "Session Complete!")}
         </h2>
-        <p className="text-sm font-bold text-[#A0B09A] uppercase tracking-widest mb-8">
-          CPR Practice Drill
+        <p className="text-sm font-bold text-[#6B7C6B] uppercase tracking-widest mb-8">
+          {t("cpr.practiceDrill", "CPR Practice Drill")}
         </p>
 
         {/* Stats Grid */}
@@ -95,7 +97,7 @@ export function CPRSummaryModal({ stats, onFinish }: Props) {
             <Activity size={20} className="mb-2 text-gray-400" />
             <span className="text-xl font-bold text-[#1A2816] mb-0.5">{stats.totalCompressions}</span>
             <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wide text-center">
-              Total<br/>Comps
+              {t("cpr.totalComps", "Total Comps")}
             </span>
           </div>
 
@@ -104,7 +106,7 @@ export function CPRSummaryModal({ stats, onFinish }: Props) {
             <Timer size={20} className={`mb-2 ${isPaceGood ? 'text-[#84B663]' : 'text-gray-400'}`} />
             <span className="text-xl font-bold text-[#1A2816] mb-0.5">{pacePercentage}%</span>
             <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wide text-center">
-              Good<br/>Rhythm
+              {t("cpr.goodRhythm", "Good Rhythm")}
             </span>
           </div>
 
@@ -113,7 +115,7 @@ export function CPRSummaryModal({ stats, onFinish }: Props) {
             <ShieldCheck size={20} className={`mb-2 ${isFormGood ? 'text-[#84B663]' : 'text-gray-400'}`} />
             <span className="text-xl font-bold text-[#1A2816] mb-0.5">{stats.lockedPercentage}%</span>
             <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wide text-center">
-              Elbows<br/>Locked
+              {t("cpr.elbowsLocked", "Elbows Locked")}
             </span>
           </div>
         </div>
@@ -123,15 +125,17 @@ export function CPRSummaryModal({ stats, onFinish }: Props) {
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-10 -mt-10" />
           <div className="relative z-10 flex items-center justify-between">
             <div className="text-left">
-              <span className="block text-[11px] font-bold text-[#B3D59F] uppercase tracking-wider mb-1">XP Earned</span>
+              <span className="block text-[11px] font-bold text-[#B3D59F] uppercase tracking-wider mb-1">
+                {t("cpr.xpEarned", "XP Earned")}
+              </span>
               <div className="flex items-baseline gap-1">
                 <span className="text-3xl font-extrabold font-lexend">+{saving ? '...' : xpEarned}</span>
-                <span className="text-sm font-bold text-white/70">XP</span>
+                <span className="text-sm font-bold text-white/70">{t("common.points", "PTS")}</span>
               </div>
             </div>
             {!saving && (
               <div className="bg-[#B3D59F]/20 px-3 py-1.5 rounded-full border border-[#B3D59F]/30">
-                <span className="text-xs font-bold text-[#B3D59F]">Awesome!</span>
+                <span className="text-xs font-bold text-[#B3D59F]">{t("cpr.awesome", "Awesome!")}</span>
               </div>
             )}
           </div>
@@ -141,10 +145,10 @@ export function CPRSummaryModal({ stats, onFinish }: Props) {
         <button
           onClick={onFinish}
           disabled={saving}
-          className="w-full h-14 bg-[#1A3312] text-white rounded-full font-bold text-lg flex items-center justify-center gap-2 hover:bg-[#2A4A1F] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full h-14 bg-[#1A3312] text-white rounded-full font-bold text-lg flex items-center justify-center gap-2 hover:bg-[#2A4A1F] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          {saving ? 'Saving...' : 'Continue'}
+          {saving ? t("common.saving", "Saving...") : t("common.continue", "Continue")}
           {!saving && <ArrowRight size={20} strokeWidth={2.5} />}
         </button>
       </div>
