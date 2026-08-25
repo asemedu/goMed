@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { X, Check } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
+import { useLanguage } from "../../lib/i18n/LanguageContext";
 
 interface CreateLobbyScreenProps {
   onLobbyCreated: (lobby: any) => void;
@@ -11,16 +12,31 @@ export function CreateLobbyScreen({
   onLobbyCreated,
   onBack,
 }: CreateLobbyScreenProps) {
+  const { t, language } = useLanguage();
   const [school, setSchool] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(8);
-  const [category, setCategory] = useState("cpr");
+  const [category, setCategory] = useState("siguranta");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+
+  const moduleIds = [
+    "siguranta",
+    "evaluare_112",
+    "rcp_adulti",
+    "aed",
+    "rcp_copii",
+    "obstructie",
+    "pls",
+    "hemoragii",
+    "traumatisme",
+    "arsuri",
+    "intoxicatii",
+  ];
 
   const handleCreate = async () => {
     setErrorMsg("");
     if (!school.trim()) {
-      setErrorMsg("Please enter your school or organization name.");
+      setErrorMsg(t("lobby.errEmptySchool", "Please enter your school or organization name."));
       return;
     }
 
@@ -31,7 +47,7 @@ export function CreateLobbyScreen({
       } = await supabase.auth.getUser();
 
       if (!user) {
-        throw new Error("You must be logged in to host a lobby.");
+        throw new Error(t("lobby.errMustLogin", "You must be logged in to host a lobby."));
       }
 
       // Generate a random 6-char code: MED + 3 digits (e.g. MED842)
@@ -53,12 +69,23 @@ export function CreateLobbyScreen({
 
       if (insertError) throw insertError;
 
-      // 2. Link relevant questions to this lobby in lobby_questions
-      const { data: qData } = await supabase
+      // 2. Link relevant questions to this lobby in lobby_questions matching language
+      let { data: qData } = await supabase
         .from("questions")
         .select("id")
         .eq("category", category)
+        .eq("language", language)
         .limit(10);
+
+      // Fallback: If no questions found for this language, fetch any for this category
+      if (!qData || qData.length === 0) {
+        const fallbackQ = await supabase
+          .from("questions")
+          .select("id")
+          .eq("category", category)
+          .limit(10);
+        qData = fallbackQ.data;
+      }
 
       if (qData && qData.length > 0) {
         const links = qData.map((q: any, idx: number) => ({
@@ -94,7 +121,7 @@ export function CreateLobbyScreen({
 
       onLobbyCreated({ ...newLobby, isNewlyCreated: true });
     } catch (err: any) {
-      setErrorMsg(err.message || "Failed to create lobby.");
+      setErrorMsg(err.message || t("lobby.errFailedCreate", "Failed to create lobby."));
     } finally {
       setLoading(false);
     }
@@ -108,13 +135,13 @@ export function CreateLobbyScreen({
           className="text-[22px] font-extrabold text-[#1A2816]"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          Host a Challenge
+          {t("lobby.hostTitle", "Host a Challenge")}
         </h2>
         <p
           className="text-[13px] text-[#6B7C6B] mt-0.5"
           style={{ fontFamily: "'Nunito', sans-serif" }}
         >
-          Configure room settings and generate invite QR code
+          {t("lobby.hostSubtitle", "Configure room settings and generate invite QR code")}
         </p>
       </div>
 
@@ -126,7 +153,7 @@ export function CreateLobbyScreen({
           <span>{errorMsg}</span>
           <button
             onClick={() => setErrorMsg("")}
-            className="p-1 opacity-70 hover:opacity-100"
+            className="p-1 opacity-70 hover:opacity-100 cursor-pointer"
           >
             <X size={15} />
           </button>
@@ -140,14 +167,14 @@ export function CreateLobbyScreen({
             className="text-[13px] font-bold text-[#1A2816] mb-1.5 block"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            School or Organization
+            {t("lobby.schoolLabel", "School or Organization")}
           </label>
           <input
             type="text"
             value={school}
             onChange={(e) => setSchool(e.target.value)}
-            placeholder="e.g. Colegiul National Sfantul Sava"
-            className="w-full px-4 py-3.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#A0B09A] focus:outline-none focus:border-[#B3D59F] text-[14px]"
+            placeholder={t("lobby.schoolPlaceholder", "e.g. Colegiul National Sfantul Sava")}
+            className="w-full px-4 py-3.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#6B7C6B] focus:outline-none focus:border-[#B3D59F] text-[14px]"
             style={{ fontFamily: "'Nunito', sans-serif" }}
           />
         </div>
@@ -158,7 +185,7 @@ export function CreateLobbyScreen({
             className="text-[13px] font-bold text-[#1A2816] mb-1.5 block"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            Maximum Players
+            {t("lobby.maxPlayers", "Maximum Players")}
           </label>
           <div className="grid grid-cols-4 gap-2">
             {[4, 8, 12, 24].map((num) => (
@@ -166,14 +193,14 @@ export function CreateLobbyScreen({
                 key={num}
                 type="button"
                 onClick={() => setMaxPlayers(num)}
-                className={`py-2.5 rounded-xl text-[13px] font-bold border transition-all ${
+                className={`py-2.5 rounded-xl text-[13px] font-bold border transition-all cursor-pointer ${
                   maxPlayers === num
                     ? "bg-[#B3D59F] text-[#1A3312] border-[#9DC885] shadow-sm"
                     : "bg-[#F7FBF5] text-[#6B7C6B] border-[#D8E8D0] hover:bg-white"
                 }`}
                 style={{ fontFamily: "'Lexend', sans-serif" }}
               >
-                {num} max
+                {num} {t("lobby.maxSuffix", "max")}
               </button>
             ))}
           </div>
@@ -185,58 +212,51 @@ export function CreateLobbyScreen({
             className="text-[13px] font-bold text-[#1A2816] mb-1.5 block"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            Challenge Module
+            {t("lobby.moduleLabel", "Challenge Module")}
           </label>
           <div className="space-y-2">
-            {[
-              {
-                id: "cpr",
-                title: "CPR & Cardiac Arrest",
-                desc: "Chest compressions, airway & rhythm",
-              },
-              {
-                id: "burns",
-                title: "Burns & Wound Care",
-                desc: "Bandaging, triage & thermal injuries",
-              },
-            ].map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setCategory(cat.id)}
-                className={`w-full p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all ${
-                  category === cat.id
-                    ? "bg-[#F0F8EC] border-[#B3D59F] ring-1 ring-[#B3D59F]"
-                    : "bg-white border-[#E8EDE6] hover:bg-[#F7FBF5]"
-                }`}
-              >
-                <div>
-                  <p
-                    className="text-[14px] font-extrabold text-[#1A2816]"
-                    style={{ fontFamily: "'Lexend', sans-serif" }}
-                  >
-                    {cat.title}
-                  </p>
-                  <p
-                    className="text-[12px] text-[#6B7C6B]"
-                    style={{ fontFamily: "'Nunito', sans-serif" }}
-                  >
-                    {cat.desc}
-                  </p>
-                </div>
-                <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                    category === cat.id
-                      ? "border-[#3D6B2A] bg-[#3D6B2A]"
-                      : "border-[#D8E8D0]"
+            {moduleIds.map((id) => {
+              const title = t(`quizzes.modules.${id}.title`);
+              const desc = t(`quizzes.modules.${id}.desc`);
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setCategory(id)}
+                  className={`w-full p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                    category === id
+                      ? "bg-[#F0F8EC] border-[#B3D59F] ring-1 ring-[#B3D59F]"
+                      : "bg-white border-[#E8EDE6] hover:bg-[#F7FBF5]"
                   }`}
                 >
-                  {category === cat.id && (
-                    <Check size={12} className="text-white" strokeWidth={3} />
-                  )}
-                </div>
-              </button>
-            ))}
+                  <div>
+                    <p
+                      className="text-[14px] font-extrabold text-[#1A2816]"
+                      style={{ fontFamily: "'Lexend', sans-serif" }}
+                    >
+                      {title}
+                    </p>
+                    <p
+                      className="text-[12px] text-[#6B7C6B]"
+                      style={{ fontFamily: "'Nunito', sans-serif" }}
+                    >
+                      {desc}
+                    </p>
+                  </div>
+                  <div
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                      category === id
+                        ? "border-[#3D6B2A] bg-[#3D6B2A]"
+                        : "border-[#D8E8D0]"
+                    }`}
+                  >
+                    {category === id && (
+                      <Check size={12} className="text-white" strokeWidth={3} />
+                    )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -246,19 +266,19 @@ export function CreateLobbyScreen({
         <button
           onClick={handleCreate}
           disabled={loading}
-          className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[16px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+          className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[16px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          {loading ? "Creating Lobby..." : "Create Lobby & Show QR Code"}
+          {loading ? t("lobby.creatingBtn", "Creating Lobby...") : t("lobby.createBtn", "Create Lobby & Show QR Code")}
         </button>
 
         <button
           onClick={onBack}
           type="button"
-          className="w-full py-3 text-[#6B7C6B] font-bold text-[14px] hover:text-[#1A2816]"
+          className="w-full py-3 text-[#6B7C6B] font-bold text-[14px] hover:text-[#1A2816] cursor-pointer"
           style={{ fontFamily: "'Nunito', sans-serif" }}
         >
-          Cancel
+          {t("common.cancel", "Cancel")}
         </button>
       </div>
     </div>

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { CheckCircle, Clock, Zap, Target } from "lucide-react";
 import { supabase } from "../../../lib/supabaseClient";
 import { storage, STORAGE_KEYS } from "../../../lib/storage";
+import { useLanguage } from "../../../lib/i18n/LanguageContext";
 
 interface QuizSummaryModalProps {
   totalXP: number;
@@ -18,6 +19,7 @@ export function QuizSummaryModal({
   averageTimeMs,
   onClose,
 }: QuizSummaryModalProps) {
+  const { t } = useLanguage();
   const [isSyncing, setIsSyncing] = useState(true);
 
   const avgTimeSeconds = (averageTimeMs / 1000).toFixed(1);
@@ -34,7 +36,7 @@ export function QuizSummaryModal({
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           // Call the new RPC function to securely update XP, streak, and activities count
-          await supabase.rpc('record_activity', { xp_earned: totalXP });
+          await supabase.rpc('record_activity', { xp_earned: totalXP, activity_title: 'Quiz Challenge' });
           
           // Re-fetch the updated profile to sync local storage accurately
           const { data: updatedProfile } = await supabase
@@ -74,10 +76,10 @@ export function QuizSummaryModal({
 
         <div className="text-center mb-6">
           <span className="text-[11px] font-extrabold text-[#3D6B2A] bg-[#E8F5E2] border border-[#B3D59F] px-3 py-1 rounded-full uppercase tracking-wider mb-2 inline-block">
-            Quiz Complete
+            {t("quizzes.summaryTitle", "Quiz Complete")}
           </span>
           <h2 className="text-[24px] font-extrabold text-[#1A2816] leading-tight mt-1">
-            Great Knowledge!
+            {t("quizzes.summarySubtitle", "Great Knowledge!")}
           </h2>
         </div>
 
@@ -87,7 +89,7 @@ export function QuizSummaryModal({
           <div className="col-span-2 bg-[#F7FBF5] rounded-2xl p-4 flex items-center justify-between border border-[#E8EDE6]">
             <div>
               <p className="text-[11px] font-bold text-[#6B7C6B] uppercase tracking-wider">
-                Total XP Earned
+                {t("quizzes.totalXpEarned", "Total XP Earned")}
               </p>
               <div className="flex items-center gap-1 mt-1 text-[#1A3312]">
                 <Zap size={18} className="text-[#3D6B2A] fill-current" />
@@ -103,8 +105,8 @@ export function QuizSummaryModal({
 
           {/* Accuracy */}
           <div className="bg-[#FAFCF9] rounded-2xl p-3 border border-[#E8EDE6]">
-            <p className="text-[10px] font-bold text-[#A0B09A] uppercase tracking-wider mb-1 flex items-center gap-1">
-              <Target size={12} /> Accuracy
+            <p className="text-[10px] font-bold text-[#6B7C6B] uppercase tracking-wider mb-1 flex items-center gap-1">
+              <Target size={12} /> {t("quizzes.accuracy", "Accuracy")}
             </p>
             <p className="text-[20px] font-extrabold text-[#1A2816]">
               {accuracy}%
@@ -116,14 +118,14 @@ export function QuizSummaryModal({
 
           {/* Average Speed */}
           <div className="bg-[#FAFCF9] rounded-2xl p-3 border border-[#E8EDE6]">
-            <p className="text-[10px] font-bold text-[#A0B09A] uppercase tracking-wider mb-1 flex items-center gap-1">
-              <Clock size={12} /> Avg Speed
+            <p className="text-[10px] font-bold text-[#6B7C6B] uppercase tracking-wider mb-1 flex items-center gap-1">
+              <Clock size={12} /> {t("quizzes.avgSpeed", "Avg Speed")}
             </p>
             <p className="text-[20px] font-extrabold text-[#1A2816]">
               {avgTimeSeconds}s
             </p>
             <p className="text-[11px] text-[#6B7C6B] font-semibold mt-0.5">
-              per question
+              {t("quizzes.perQuestion", "per question")}
             </p>
           </div>
         </div>
@@ -131,9 +133,9 @@ export function QuizSummaryModal({
         <button
           onClick={onClose}
           disabled={isSyncing}
-          className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[16px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[16px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
-          {isSyncing ? "Saving..." : "Continue"}
+          {isSyncing ? t("common.saving", "Saving...") : t("common.continue", "Continue")}
         </button>
       </div>
     </div>

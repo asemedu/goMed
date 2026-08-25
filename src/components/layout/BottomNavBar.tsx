@@ -1,6 +1,7 @@
 import React from "react";
 import { Home, BookOpen, Boxes, HelpCircle } from "lucide-react";
 import { Screen } from "../../types";
+import { useLanguage } from "../../lib/i18n/LanguageContext";
 
 interface BottomNavBarProps {
   current: Screen;
@@ -8,14 +9,16 @@ interface BottomNavBarProps {
 }
 
 export function BottomNavBar({ current, onNavigate }: BottomNavBarProps) {
+  const { t } = useLanguage();
+
   const tabs: {
     id: Screen;
     label: string;
     icon: React.ComponentType<{ size?: number; className?: string }>;
   }[] = [
-    { id: "dashboard", label: "Home", icon: Home },
-    { id: "quizzes", label: "Quizzes", icon: HelpCircle },
-    { id: "ar-hub", label: "AR Practice", icon: Boxes },
+    { id: "dashboard", label: t("nav.home", "Home"), icon: Home },
+    { id: "quizzes", label: t("nav.quizzes", "Quizzes"), icon: HelpCircle },
+    { id: "ar-hub", label: t("nav.arPractice", "AR Practice"), icon: Boxes },
   ];
 
   return (

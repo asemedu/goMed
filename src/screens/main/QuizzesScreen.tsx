@@ -1,5 +1,6 @@
-import React from "react";
-import { Heart, Shield, Activity, BookOpen, HelpCircle } from "lucide-react";
+import React, { useState } from "react";
+import { Heart, Shield, Activity, BookOpen, HelpCircle, X, Zap, ArrowRight } from "lucide-react";
+import { useLanguage } from "../../lib/i18n/LanguageContext";
 
 interface QuizzesScreenProps {
   onExploreCPR: () => void;
@@ -7,38 +8,107 @@ interface QuizzesScreenProps {
 }
 
 export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps) {
-  const modules = [
+  const { t } = useLanguage();
+  const [selectedModule, setSelectedModule] = useState<any | null>(null);
+
+  const rawModules = [
     {
-      id: "bls",
-      title: "Basic Life Support & CPR",
-      desc: "Chest compression mechanics, rescue breaths, and AED usage.",
-      icon: Heart,
-      tag: "QUIZ",
-      xp: "Up to +200 XP",
-      time: "5-10 min",
-      status: "Available",
-    },
-    {
-      id: "choking",
-      title: "Choking & Airway Obstruction",
-      desc: "Recognizing distress, back blows, and abdominal thrusts.",
+      id: "siguranta",
       icon: Shield,
-      tag: "QUIZ",
-      xp: "Up to +160 XP",
-      time: "5-8 min",
+      questionCount: 5,
+      xp: "+70 XP",
+      time: "5 min",
       status: "Available",
     },
     {
-      id: "trauma",
-      title: "Severe Bleeding & Trauma",
-      desc: "Direct wound pressure, wound packing, and tourniquets.",
+      id: "evaluare_112",
+      icon: BookOpen,
+      questionCount: 4,
+      xp: "+70 XP",
+      time: "5 min",
+      status: "Available",
+    },
+    {
+      id: "rcp_adulti",
+      icon: Heart,
+      questionCount: 5,
+      xp: "+110 XP",
+      time: "6 min",
+      status: "Available",
+    },
+    {
+      id: "aed",
       icon: Activity,
-      tag: "QUIZ",
-      xp: "Up to +160 XP",
-      time: "5-8 min",
+      questionCount: 4,
+      xp: "+60 XP",
+      time: "4 min",
+      status: "Available",
+    },
+    {
+      id: "rcp_copii",
+      icon: Heart,
+      questionCount: 4,
+      xp: "+90 XP",
+      time: "4 min",
+      status: "Available",
+    },
+    {
+      id: "obstructie",
+      icon: Activity,
+      questionCount: 5,
+      xp: "+100 XP",
+      time: "5 min",
+      status: "Available",
+    },
+    {
+      id: "pls",
+      icon: BookOpen,
+      questionCount: 4,
+      xp: "+60 XP",
+      time: "4 min",
+      status: "Available",
+    },
+    {
+      id: "hemoragii",
+      icon: Shield,
+      questionCount: 5,
+      xp: "+110 XP",
+      time: "5 min",
+      status: "Available",
+    },
+    {
+      id: "traumatisme",
+      icon: Activity,
+      questionCount: 4,
+      xp: "+80 XP",
+      time: "4 min",
+      status: "Available",
+    },
+    {
+      id: "arsuri",
+      icon: BookOpen,
+      questionCount: 5,
+      xp: "+80 XP",
+      time: "5 min",
+      status: "Available",
+    },
+    {
+      id: "intoxicatii",
+      icon: HelpCircle,
+      questionCount: 5,
+      xp: "+90 XP",
+      time: "5 min",
       status: "Available",
     },
   ];
+
+  const modules = rawModules.map((m) => ({
+    ...m,
+    title: t(`quizzes.modules.${m.id}.title`),
+    categoryName: t(`quizzes.modules.${m.id}.categoryName`),
+    desc: t(`quizzes.modules.${m.id}.desc`),
+    tag: t("quizzes.quizBadge", "QUIZ"),
+  }));
 
   return (
     <div className="flex flex-col px-5 py-5" style={{ minHeight: 740 }}>
@@ -48,19 +118,19 @@ export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps
           className="text-[11px] font-bold text-[#3D6B2A] uppercase tracking-wider block"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          Test Your Knowledge
+          {t("quizzes.badge", "Test Your Knowledge")}
         </span>
         <h2
           className="text-[22px] font-extrabold text-[#1A2816]"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          Quizzes & Challenges
+          {t("quizzes.title", "Quizzes & Challenges")}
         </h2>
         <p
           className="text-[13px] text-[#6B7C6B] mt-0.5"
           style={{ fontFamily: "'Nunito', sans-serif" }}
         >
-          Earn XP by completing time-based clinical quizzes.
+          {t("quizzes.subtitle", "Earn XP by completing time-based clinical quizzes.")}
         </p>
       </div>
 
@@ -73,7 +143,7 @@ export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps
               key={mod.id}
               onClick={() => {
                 if (mod.status === "Available") {
-                  onSelectQuiz(mod.id);
+                  setSelectedModule(mod);
                 }
               }}
               className={`p-4 rounded-2xl border transition-all cursor-pointer ${
@@ -94,7 +164,7 @@ export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps
                     >
                       {mod.tag}
                     </span>
-                    <span className="text-[11px] text-[#A0B09A] ml-auto font-semibold">
+                    <span className="text-[11px] text-[#6B7C6B] ml-auto font-semibold">
                       {mod.time}
                     </span>
                   </div>
@@ -131,10 +201,10 @@ export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps
                 >
                   {mod.status === "Available" ? (
                     <>
-                      <HelpCircle size={14} /> Start Quiz
+                      <HelpCircle size={14} /> {t("quizzes.startQuiz", "Start Quiz")}
                     </>
                   ) : (
-                    "Locked"
+                    t("quizzes.locked", "Locked")
                   )}
                 </span>
               </div>
@@ -142,6 +212,84 @@ export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps
           );
         })}
       </div>
+
+      {/* Quiz Details Modal */}
+      {selectedModule && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-[#1A2816]/60 backdrop-blur-sm"
+            onClick={() => setSelectedModule(null)}
+          />
+          <div className="relative w-full max-w-[340px] bg-white rounded-3xl p-6 shadow-2xl animate-slideUp">
+            <button
+              onClick={() => setSelectedModule(null)}
+              className="absolute top-5 right-5 text-[#6B7C6B] hover:text-[#1A2816] transition-colors cursor-pointer"
+            >
+              <X size={22} />
+            </button>
+            <div className="mb-4 text-center pr-4 pl-4 mt-2">
+              <div className="w-14 h-14 rounded-2xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center text-[#3D6B2A] mx-auto mb-3">
+                {React.createElement(selectedModule.icon, { size: 26 })}
+              </div>
+              <span className="text-[10px] font-extrabold text-[#3D6B2A] bg-[#E8F5E2] border border-[#B3D59F] px-2.5 py-0.5 rounded-full uppercase tracking-wider mb-2 inline-block">
+                {selectedModule.categoryName}
+              </span>
+              <h3
+                className="text-[18px] font-extrabold text-[#1A2816] leading-snug"
+                style={{ fontFamily: "'Lexend', sans-serif" }}
+              >
+                {selectedModule.title}
+              </h3>
+            </div>
+
+            <p
+              className="text-[13px] font-semibold text-[#587058] leading-relaxed text-center px-2 mb-5"
+              style={{ fontFamily: "'Nunito', sans-serif" }}
+            >
+              {selectedModule.desc}
+            </p>
+
+            <div className="grid grid-cols-2 gap-2.5 mb-6">
+              <div className="bg-[#F7FBF5] border border-[#E8EDE6] rounded-2xl p-3 text-center">
+                <div className="flex items-center justify-center gap-1 text-[#6B7C6B] text-[11px] font-bold mb-0.5">
+                  <HelpCircle size={13} /> {t("quizzes.questions", "Questions")}
+                </div>
+                <p
+                  className="text-[16px] font-extrabold text-[#1A2816]"
+                  style={{ fontFamily: "'Lexend', sans-serif" }}
+                >
+                  {selectedModule.questionCount}
+                </p>
+              </div>
+
+              <div className="bg-[#F7FBF5] border border-[#E8EDE6] rounded-2xl p-3 text-center">
+                <div className="flex items-center justify-center gap-1 text-[#3D6B2A] text-[11px] font-bold mb-0.5">
+                  <Zap size={13} /> {t("quizzes.reward", "Reward")}
+                </div>
+                <p
+                  className="text-[16px] font-extrabold text-[#3D6B2A]"
+                  style={{ fontFamily: "'Lexend', sans-serif" }}
+                >
+                  {selectedModule.xp}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                const id = selectedModule.id;
+                setSelectedModule(null);
+                onSelectQuiz(id);
+              }}
+              className="w-full py-3.5 rounded-xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[15px] hover:bg-[#9DC885] active:scale-[0.98] transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              {t("quizzes.startQuiz", "Start Quiz")} <ArrowRight size={16} strokeWidth={2.5} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

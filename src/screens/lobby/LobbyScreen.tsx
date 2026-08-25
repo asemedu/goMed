@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import { LobbyQRCodeModal } from "../../components/modals/LobbyQRCodeModal";
+import { useLanguage } from "../../lib/i18n/LanguageContext";
 
 interface LobbyScreenProps {
   initialLobby?: any;
@@ -27,6 +28,7 @@ export function LobbyScreen({
   onLobbyJoined,
   onKicked,
 }: LobbyScreenProps) {
+  const { t } = useLanguage();
   const [code, setCode] = useState(initialLobby?.code || "");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -428,23 +430,23 @@ export function LobbyScreen({
             className="text-[22px] font-extrabold text-[#1A2816]"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            Challenge Lobby
+            {t("lobby.title", "Challenge Lobby")}
           </h2>
           <p
             className="text-[13px] text-[#6B7C6B] mt-0.5"
             style={{ fontFamily: "'Nunito', sans-serif" }}
           >
-            {lobby ? "Waiting room & participants" : "Scan QR or enter code to join live session"}
+            {lobby ? t("lobby.subtitleWaiting", "Waiting room & participants") : t("lobby.subtitleJoin", "Scan QR or enter code to join live session")}
           </p>
         </div>
 
         {lobby && (
           <button
             onClick={() => setShowQRModal(true)}
-            className="flex items-center gap-1.5 bg-[#F0F8EC] border border-[#D4ECC5] text-[#3D6B2A] px-3 py-1.5 rounded-xl text-[12px] font-extrabold shadow-sm hover:bg-[#E2F0DC] active:scale-95 transition-all"
+            className="flex items-center gap-1.5 bg-[#F0F8EC] border border-[#D4ECC5] text-[#3D6B2A] px-3 py-1.5 rounded-xl text-[12px] font-extrabold shadow-sm hover:bg-[#E2F0DC] active:scale-95 transition-all cursor-pointer"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            <QrCode size={16} /> QR Code
+            <QrCode size={16} /> {t("lobby.qrCodeBtn", "QR Code")}
           </button>
         )}
       </div>
@@ -458,7 +460,7 @@ export function LobbyScreen({
           <span>{errorMsg}</span>
           <button
             onClick={() => setErrorMsg("")}
-            className="text-current opacity-70 hover:opacity-100 p-1"
+            className="text-current opacity-70 hover:opacity-100 p-1 cursor-pointer"
           >
             <X size={15} />
           </button>
@@ -477,14 +479,14 @@ export function LobbyScreen({
                 className="text-[11px] font-bold text-[#3D6B2A] uppercase tracking-wider block"
                 style={{ fontFamily: "'Lexend', sans-serif" }}
               >
-                Room Code · {lobby.code}
+                {t("lobby.roomCode", "Room Code")} · {lobby.code}
               </span>
               {isHost && (
                 <span
                   className="bg-[#1A3312] text-white text-[9px] font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1 uppercase tracking-wider"
                   style={{ fontFamily: "'Lexend', sans-serif" }}
                 >
-                  <Crown size={10} /> You are Host
+                  <Crown size={10} /> {t("lobby.youAreHost", "You are Host")}
                 </span>
               )}
             </div>
@@ -551,7 +553,7 @@ export function LobbyScreen({
               className="bg-black/60 text-white text-[11px] font-bold px-3.5 py-1.5 rounded-full backdrop-blur-sm"
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
-              {loading ? "Verifying QR Code..." : "Point camera at lobby QR"}
+              {loading ? t("lobby.verifyingQR", "Verifying QR Code...") : t("lobby.pointCamera", "Point camera at lobby QR")}
             </span>
           </div>
         </div>
@@ -563,10 +565,10 @@ export function LobbyScreen({
           <div className="flex items-center gap-3 mb-4">
             <div className="flex-1 h-px bg-[#E0EAD8]" />
             <span
-              className="text-[12px] font-bold text-[#A0B09A] bg-[#F0F5EE] px-3 py-1 rounded-full"
+              className="text-[12px] font-bold text-[#6B7C6B] bg-[#F0F5EE] px-3 py-1 rounded-full"
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
-              OR ENTER CODE
+              {t("lobby.orEnterCode", "OR ENTER CODE")}
             </span>
             <div className="flex-1 h-px bg-[#E0EAD8]" />
           </div>
@@ -582,14 +584,14 @@ export function LobbyScreen({
               type="text"
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
-              placeholder="e.g. MED123"
+              placeholder={t("lobby.codePlaceholder", "e.g. MED123")}
               maxLength={12}
-              className="flex-1 px-4 py-3.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#A0B09A] focus:outline-none focus:border-[#B3D59F] focus:ring-2 focus:ring-[#B3D59F]/30 transition-all text-[15px] font-mono tracking-widest uppercase font-bold"
+              className="flex-1 px-4 py-3.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#6B7C6B] focus:outline-none focus:border-[#B3D59F] focus:ring-2 focus:ring-[#B3D59F]/30 transition-all text-[15px] font-mono tracking-widest uppercase font-bold"
             />
             <button
               type="submit"
               disabled={loading}
-              className="w-12 h-12 rounded-xl bg-[#B3D59F] flex items-center justify-center hover:bg-[#9DC885] active:scale-95 transition-all shrink-0 shadow-sm self-center disabled:opacity-60"
+              className="w-12 h-12 rounded-xl bg-[#B3D59F] flex items-center justify-center hover:bg-[#9DC885] active:scale-95 transition-all shrink-0 shadow-sm self-center disabled:opacity-60 cursor-pointer"
               title="Join Lobby"
             >
               <Send size={16} className="text-[#1A3312]" />
@@ -609,7 +611,7 @@ export function LobbyScreen({
             className="text-[14px] font-bold text-[#1A2816]"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            {lobby ? "Participants Ready" : "Lobby Participants"}
+            {lobby ? t("lobby.participantsReady", "Participants Ready") : t("lobby.lobbyParticipants", "Lobby Participants")}
           </p>
           <span
             className="ml-auto text-[11px] text-[#6B7C6B] bg-white border border-[#D4ECC5] px-2.5 py-0.5 rounded-lg font-bold"
@@ -634,7 +636,7 @@ export function LobbyScreen({
                 <button
                   type="button"
                   onClick={() => handleKickParticipant(p.userId)}
-                  className="w-7 h-7 rounded-lg bg-[#FFF0F2] text-[#C0384E] hover:bg-[#FDE2E6] flex items-center justify-center transition-colors shrink-0"
+                  className="w-7 h-7 rounded-lg bg-[#FFF0F2] text-[#C0384E] hover:bg-[#FDE2E6] flex items-center justify-center transition-colors shrink-0 cursor-pointer"
                   title={`Kick ${p.name}`}
                   aria-label={`Kick ${p.name}`}
                 >
@@ -667,7 +669,7 @@ export function LobbyScreen({
                     className="text-[9px] font-extrabold text-[#3D6B2A] bg-[#E8F5E2] border border-[#B3D59F] px-1.5 py-0.5 rounded flex items-center gap-0.5 uppercase tracking-wider shrink-0"
                     style={{ fontFamily: "'Lexend', sans-serif" }}
                   >
-                    <Crown size={9} /> HOST
+                    <Crown size={9} /> {t("lobby.hostBadge", "HOST")}
                   </span>
                 )}
               </div>
@@ -677,7 +679,7 @@ export function LobbyScreen({
                   className="ml-auto text-[10px] font-extrabold text-[#3D6B2A] bg-white border border-[#B3D59F] px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0"
                   style={{ fontFamily: "'Lexend', sans-serif" }}
                 >
-                  YOU
+                  {t("lobby.youBadge", "YOU")}
                 </span>
               )}
             </div>
@@ -689,8 +691,8 @@ export function LobbyScreen({
               style={{ fontFamily: "'Nunito', sans-serif" }}
             >
               {lobby
-                ? "Waiting for participants to scan and join..."
-                : "Scan a QR code or enter a room code above."}
+                ? t("lobby.waitingScan", "Waiting for participants to scan and join...")
+                : t("lobby.scanInstruction", "Scan a QR code or enter a room code above.")}
             </div>
           )}
         </div>
@@ -705,16 +707,16 @@ export function LobbyScreen({
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
               <div className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
-              Starting Challenge Questions...
+              {t("lobby.startingChallenge", "Starting Challenge Questions...")}
             </div>
           ) : isHost ? (
             <button
               onClick={handleStartLobby}
               disabled={startingLobby || participants.length === 0}
-              className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[16px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+              className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[16px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
               style={{ fontFamily: "'Lexend', sans-serif" }}
             >
-              {startingLobby ? "Starting Session..." : "Start Challenge Now"}
+              {startingLobby ? t("lobby.startingSession", "Starting Session...") : t("lobby.startChallengeNow", "Start Challenge Now")}
               <ArrowRight size={18} strokeWidth={2.5} />
             </button>
           ) : (
@@ -723,7 +725,7 @@ export function LobbyScreen({
               style={{ fontFamily: "'Nunito', sans-serif" }}
             >
               <Clock size={15} className="text-[#3D6B2A] animate-spin" />
-              Waiting for host to start challenge...
+              {t("lobby.waitingHost", "Waiting for host to start challenge...")}
             </div>
           )}
         </div>
