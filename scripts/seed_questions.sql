@@ -1,12 +1,5 @@
 -- Script to clear existing questions and seed 50 Romanian questions across 11 categories
 
-DELETE FROM lobby_questions;
-
-DELETE FROM answers;
-
-DELETE FROM questions;
-
-
 
 WITH q1 AS (INSERT INTO questions (question_text, category, points, time_limit_seconds) VALUES ('Conform Legii 95/2006, cine poate acorda primul ajutor de bază?', 'siguranta', 10, 20) RETURNING id)
 INSERT INTO answers (question_id, answer_text, is_correct, order_index) VALUES
