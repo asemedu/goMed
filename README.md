@@ -161,6 +161,6 @@ goMed/
 
 *Developed for interactive first-aid and resuscitation education in schools.*
 
-> **Developers:** [Rareș Cazan](https://github.com/rarescazan) & [Alex Fechet](https://github.com/alexf05)  
+> **Developers:** [Rareș Cazan](https://github.com/rarescazan30) & [Alex Fechet](https://github.com/alexf05)  
 > **Project:** **Start ONG**, funded by **Kaufland Romania** through **Act for Tomorrow ONG**  
 > **Implemented by:** **Asociația pentru Susținerea Educației Medicale (ASEM)**
