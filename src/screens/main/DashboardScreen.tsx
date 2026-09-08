@@ -360,46 +360,6 @@ export function DashboardScreen({
         <ChevronRight size={18} className="text-[#6B7C6B]" />
       </button>
 
-      {/* Live CPR Practice CTA */}
-      <button
-        onClick={() => {
-          // Unlock Audio on iOS (needs a direct user gesture)
-          const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-          if (AudioContext) {
-            const audioCtx = new AudioContext();
-            audioCtx.resume();
-          }
-          if ('speechSynthesis' in window) {
-            const utterance = new SpeechSynthesisUtterance('');
-            utterance.volume = 0;
-            window.speechSynthesis.speak(utterance);
-          }
-          onStartCPRPractice();
-        }}
-        className="w-full bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center justify-between hover:bg-blue-100 active:scale-[0.98] transition-all shadow-sm mb-4 cursor-pointer"
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-600">
-            <Zap size={22} strokeWidth={2.5} />
-          </div>
-          <div className="text-left">
-            <p
-              className="font-extrabold text-[#1A2816] text-[15px]"
-              style={{ fontFamily: "'Lexend', sans-serif" }}
-            >
-              {t("dashboard.liveCPRTitle", "Live CPR Practice")}
-            </p>
-            <p
-              className="text-[12px] text-[#6B7C6B]"
-              style={{ fontFamily: "'Nunito', sans-serif" }}
-            >
-              {t("dashboard.liveCPRSubtitle", "Real-time AI camera feedback")}
-            </p>
-          </div>
-        </div>
-        <ChevronRight size={18} className="text-[#6B7C6B]" />
-      </button>
-
       {/* Recent activity */}
       <p
         className="text-[14px] font-bold text-[#1A2816] mb-2.5"
