@@ -210,8 +210,8 @@ function AppContent() {
               onClick={historyStack.length > 1 ? goBack : undefined}
               disabled={historyStack.length <= 1}
               className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shrink-0 ${
-                historyStack.length > 1 
-                  ? "bg-white/80 backdrop-blur-md shadow-sm border border-[#E8EDE6] text-[#1A2816] hover:bg-white active:scale-95 cursor-pointer" 
+                historyStack.length > 1
+                  ? "bg-white/80 backdrop-blur-md shadow-sm border border-[#E8EDE6] text-[#1A2816] hover:bg-white active:scale-95 cursor-pointer"
                   : "bg-[#F7FBF5] border border-[#E8EDE6] text-[#6B7C6B] cursor-not-allowed"
               }`}
               aria-label="Go back"
@@ -285,6 +285,7 @@ function AppContent() {
                     navigate("ar-try");
                   }
                 }}
+                onStartCPRPractice={() => navigate("cpr-practice")}
               />
             )}
             {current === "ar-try" && (
