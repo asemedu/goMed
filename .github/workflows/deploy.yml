@@ -2,7 +2,7 @@ name: Deploy static content to Pages
 
 on:
   push:
-    branches: ["main", "master", "alex_claude"] # Trigger on push to these branches
+    branches: ["main", "master", "testing"] # Deploy only from protected branches
   workflow_dispatch:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
