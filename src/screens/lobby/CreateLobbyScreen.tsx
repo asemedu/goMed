@@ -15,11 +15,13 @@ export function CreateLobbyScreen({
   const { t, language } = useLanguage();
   const [school, setSchool] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(8);
-  const [category, setCategory] = useState("siguranta");
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set(["siguranta"]));
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
   const moduleIds = [
+    "practica_rcp_live",
+    "apel_112",
     "siguranta",
     "evaluare_112",
     "rcp_adulti",
@@ -33,10 +35,27 @@ export function CreateLobbyScreen({
     "intoxicatii",
   ];
 
+  const toggleCategory = (id: string) => {
+    setSelectedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
   const handleCreate = async () => {
     setErrorMsg("");
     if (!school.trim()) {
       setErrorMsg(t("lobby.errEmptySchool", "Please enter your school or organization name."));
+      return;
+    }
+
+    if (selectedCategories.size === 0) {
+      setErrorMsg(t("lobby.errNoModule", "Please select at least one challenge module."));
       return;
     }
 
@@ -70,20 +89,21 @@ export function CreateLobbyScreen({
       if (insertError) throw insertError;
 
       // 2. Link relevant questions to this lobby in lobby_questions matching language
+      const categoriesToQuery = Array.from(selectedCategories);
       let { data: qData } = await supabase
         .from("questions")
         .select("id")
-        .eq("category", category)
+        .in("category", categoriesToQuery)
         .eq("language", language)
-        .limit(10);
+        .limit(50);
 
-      // Fallback: If no questions found for this language, fetch any for this category
+      // Fallback: If no questions found for this language, fetch any for these categories
       if (!qData || qData.length === 0) {
         const fallbackQ = await supabase
           .from("questions")
           .select("id")
-          .eq("category", category)
-          .limit(10);
+          .in("category", categoriesToQuery)
+          .limit(50);
         qData = fallbackQ.data;
       }
 
@@ -206,25 +226,32 @@ export function CreateLobbyScreen({
           </div>
         </div>
 
-        {/* Challenge Category */}
+        {/* Challenge Categories (Multi-select) */}
         <div>
           <label
             className="text-[13px] font-bold text-[#1A2816] mb-1.5 block"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            {t("lobby.moduleLabel", "Challenge Module")}
+            {t("lobby.moduleLabel", "Challenge Modules")}
           </label>
+          <p
+            className="text-[11px] text-[#6B7C6B] mb-2"
+            style={{ fontFamily: "'Nunito', sans-serif" }}
+          >
+            {t("lobby.moduleMultiHint", "Select one or more modules for this session")}
+          </p>
           <div className="space-y-2">
             {moduleIds.map((id) => {
               const title = t(`quizzes.modules.${id}.title`);
               const desc = t(`quizzes.modules.${id}.desc`);
+              const isSelected = selectedCategories.has(id);
               return (
                 <button
                   key={id}
                   type="button"
-                  onClick={() => setCategory(id)}
+                  onClick={() => toggleCategory(id)}
                   className={`w-full p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
-                    category === id
+                    isSelected
                       ? "bg-[#F0F8EC] border-[#B3D59F] ring-1 ring-[#B3D59F]"
                       : "bg-white border-[#E8EDE6] hover:bg-[#F7FBF5]"
                   }`}
@@ -244,13 +271,13 @@ export function CreateLobbyScreen({
                     </p>
                   </div>
                   <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                      category === id
+                    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 ml-2 ${
+                      isSelected
                         ? "border-[#3D6B2A] bg-[#3D6B2A]"
                         : "border-[#D8E8D0]"
                     }`}
                   >
-                    {category === id && (
+                    {isSelected && (
                       <Check size={12} className="text-white" strokeWidth={3} />
                     )}
                   </div>
