@@ -237,7 +237,7 @@ function AppContent() {
               }`}
           >
             {current === "landing" && (
-              <LandingScreen onNext={() => navigate("cpr")} />
+              <LandingScreen onNext={() => navigate("onboarding")} />
             )}
             {current === "cpr" && (
               <CPRScreen onNext={() => navigate("onboarding")} />

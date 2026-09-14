@@ -36,6 +36,7 @@ export function DashboardScreen({
     ranking?: number;
     activities_count?: number;
     streak?: number;
+    role?: string;
     id?: string;
   } | null>(() => storage.get(STORAGE_KEYS.PROFILE, null));
 
@@ -83,7 +84,7 @@ export function DashboardScreen({
         if (user) {
           const { data, error } = await supabase
             .from("profiles")
-            .select("display_name, points, activities_count, streak")
+            .select("display_name, points, activities_count, streak, role")
             .eq("id", user.id)
             .single();
 
@@ -333,32 +334,34 @@ export function DashboardScreen({
         </div>
       </button>
 
-      {/* Create Lobby CTA */}
-      <button
-        onClick={onCreateLobby}
-        className="w-full bg-white border border-[#D8E8D0] rounded-2xl p-4 flex items-center justify-between hover:bg-[#F7FBF5] active:scale-[0.98] transition-all shadow-sm mb-4 cursor-pointer"
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center text-[#3D6B2A]">
-            <Plus size={22} strokeWidth={2.5} />
+      {/* Create Lobby CTA — Teachers only */}
+      {profile?.role === "teacher" && (
+        <button
+          onClick={onCreateLobby}
+          className="w-full bg-white border border-[#D8E8D0] rounded-2xl p-4 flex items-center justify-between hover:bg-[#F7FBF5] active:scale-[0.98] transition-all shadow-sm mb-4 cursor-pointer"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-[#F0F8EC] border border-[#D4ECC5] flex items-center justify-center text-[#3D6B2A]">
+              <Plus size={22} strokeWidth={2.5} />
+            </div>
+            <div className="text-left">
+              <p
+                className="font-extrabold text-[#1A2816] text-[15px]"
+                style={{ fontFamily: "'Lexend', sans-serif" }}
+              >
+                {t("dashboard.createLobbyTitle", "Create a Challenge Lobby")}
+              </p>
+              <p
+                className="text-[12px] text-[#6B7C6B]"
+                style={{ fontFamily: "'Nunito', sans-serif" }}
+              >
+                {t("dashboard.createLobbySubtitle", "Host a live multiplayer session for students")}
+              </p>
+            </div>
           </div>
-          <div className="text-left">
-            <p
-              className="font-extrabold text-[#1A2816] text-[15px]"
-              style={{ fontFamily: "'Lexend', sans-serif" }}
-            >
-              {t("dashboard.createLobbyTitle", "Create a Challenge Lobby")}
-            </p>
-            <p
-              className="text-[12px] text-[#6B7C6B]"
-              style={{ fontFamily: "'Nunito', sans-serif" }}
-            >
-              {t("dashboard.createLobbySubtitle", "Host a live multiplayer session for students")}
-            </p>
-          </div>
-        </div>
-        <ChevronRight size={18} className="text-[#6B7C6B]" />
-      </button>
+          <ChevronRight size={18} className="text-[#6B7C6B]" />
+        </button>
+      )}
 
       {/* Recent activity */}
       <p
