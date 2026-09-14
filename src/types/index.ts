@@ -40,6 +40,21 @@ export interface LobbyData {
   isNewlyCreated?: boolean;
 }
 
+export interface Quiz {
+  id: string;
+  code: string;
+  name: string;
+  is_ar?: boolean;
+  created_at?: string;
+}
+
+export interface LobbyQuiz {
+  id: string;
+  lobby_id: string;
+  quiz_id: string;
+  order_index: number;
+}
+
 export interface MovementItem {
   id: string;
   title: string;

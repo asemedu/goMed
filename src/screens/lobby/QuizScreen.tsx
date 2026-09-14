@@ -30,20 +30,22 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
         // 1. Try to fetch questions linked to this lobby
         if (lobby?.id) {
           const { data: lqData, error: lqError } = await supabase
-            .from("lobby_questions")
+            .from("lobby_quizzes")
             .select(`
               order_index,
-              questions (
-                id,
-                question_text,
-                category,
-                points,
-                time_limit_seconds,
-                answers (
+              quizzes (
+                questions (
                   id,
-                  answer_text,
-                  is_correct,
-                  order_index
+                  question_text,
+                  category,
+                  points,
+                  time_limit_seconds,
+                  answers (
+                    id,
+                    answer_text,
+                    is_correct,
+                    order_index
+                  )
                 )
               )
             `)
@@ -51,9 +53,14 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
             .order("order_index", { ascending: true });
 
           if (!lqError && lqData && lqData.length > 0) {
-            loadedQuestions = lqData
-              .map((item: any) => item.questions)
-              .filter(Boolean);
+            const flatQuestions: any[] = [];
+            lqData.forEach((item: any) => {
+              const qs = item.quizzes?.questions;
+              if (Array.isArray(qs)) {
+                flatQuestions.push(...qs);
+              }
+            });
+            loadedQuestions = flatQuestions;
           }
         }
 

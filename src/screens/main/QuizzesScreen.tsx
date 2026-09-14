@@ -1,114 +1,48 @@
 import React, { useState } from "react";
 import { Heart, Shield, Activity, BookOpen, HelpCircle, X, Zap, ArrowRight } from "lucide-react";
 import { useLanguage } from "../../lib/i18n/LanguageContext";
+import { supabase } from "../../lib/supabaseClient";
 
 interface QuizzesScreenProps {
   onExploreCPR: () => void;
-  onSelectQuiz: (category: string) => void;
+  onSelectQuiz: (quizId: string) => void;
 }
 
 export function QuizzesScreen({ onExploreCPR, onSelectQuiz }: QuizzesScreenProps) {
   const { t } = useLanguage();
   const [selectedModule, setSelectedModule] = useState<any | null>(null);
+  const [modules, setModules] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const rawModules = [
-    {
-      id: "siguranta",
-      icon: Shield,
-      questionCount: 5,
-      xp: "+70 XP",
-      time: "5 min",
-      status: "Available",
-    },
-    {
-      id: "evaluare_112",
-      icon: BookOpen,
-      questionCount: 4,
-      xp: "+70 XP",
-      time: "5 min",
-      status: "Available",
-    },
-    {
-      id: "rcp_adulti",
-      icon: Heart,
-      questionCount: 5,
-      xp: "+110 XP",
-      time: "6 min",
-      status: "Available",
-    },
-    {
-      id: "aed",
-      icon: Activity,
-      questionCount: 4,
-      xp: "+60 XP",
-      time: "4 min",
-      status: "Available",
-    },
-    {
-      id: "rcp_copii",
-      icon: Heart,
-      questionCount: 4,
-      xp: "+90 XP",
-      time: "4 min",
-      status: "Available",
-    },
-    {
-      id: "obstructie",
-      icon: Activity,
-      questionCount: 5,
-      xp: "+100 XP",
-      time: "5 min",
-      status: "Available",
-    },
-    {
-      id: "pls",
-      icon: BookOpen,
-      questionCount: 4,
-      xp: "+60 XP",
-      time: "4 min",
-      status: "Available",
-    },
-    {
-      id: "hemoragii",
-      icon: Shield,
-      questionCount: 5,
-      xp: "+110 XP",
-      time: "5 min",
-      status: "Available",
-    },
-    {
-      id: "traumatisme",
-      icon: Activity,
-      questionCount: 4,
-      xp: "+80 XP",
-      time: "4 min",
-      status: "Available",
-    },
-    {
-      id: "arsuri",
-      icon: BookOpen,
-      questionCount: 5,
-      xp: "+80 XP",
-      time: "5 min",
-      status: "Available",
-    },
-    {
-      id: "intoxicatii",
-      icon: HelpCircle,
-      questionCount: 5,
-      xp: "+90 XP",
-      time: "5 min",
-      status: "Available",
-    },
-  ];
+  React.useEffect(() => {
+    const fetchQuizzes = async () => {
+      const { data } = await supabase.from("quizzes").select("*").order("created_at", { ascending: true });
 
-  const modules = rawModules.map((m) => ({
-    ...m,
-    title: t(`quizzes.modules.${m.id}.title`),
-    categoryName: t(`quizzes.modules.${m.id}.categoryName`),
-    desc: t(`quizzes.modules.${m.id}.desc`),
-    tag: t("quizzes.quizBadge", "QUIZ"),
-  }));
+      if (data) {
+        const loadedModules = data.map((quiz, index) => {
+          // Assign an icon based on index for variety
+          const icons = [Shield, BookOpen, Heart, Activity, HelpCircle];
+          const Icon = icons[index % icons.length];
+
+          return {
+            id: quiz.id,
+            icon: Icon,
+            questionCount: 5, // We could fetch actual count, but default to 5 for UI consistency
+            xp: `+${quiz.is_ar ? 120 : 70} XP`,
+            time: quiz.is_ar ? "8 min" : "5 min",
+            status: "Available",
+            title: quiz.name || `Quiz: ${quiz.code}`,
+            categoryName: quiz.is_ar ? "AR Challenge" : "Standard Quiz",
+            desc: `Test your knowledge in ${quiz.name || quiz.code}.`,
+            tag: t("quizzes.quizBadge", "QUIZ"),
+          };
+        });
+        setModules(loadedModules);
+      }
+      setLoading(false);
+    };
+    fetchQuizzes();
+  }, [t]);
 
   return (
     <div className="flex flex-col px-5 py-5" style={{ minHeight: 740 }}>
