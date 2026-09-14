@@ -5,16 +5,16 @@ import { QuizSummaryModal } from "./components/QuizSummaryModal";
 import { useLanguage } from "../../lib/i18n/LanguageContext";
 
 interface SinglePlayerQuizScreenProps {
-  category: string;
+  quizId: string;
   onFinish: () => void;
 }
 
-export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizScreenProps) {
+export function SinglePlayerQuizScreen({ quizId, onFinish }: SinglePlayerQuizScreenProps) {
   const { t, language } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  
+
   const [selectedAnswerId, setSelectedAnswerId] = useState<string | null>(null);
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -54,12 +54,12 @@ export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizS
               order_index
             )
           `)
-          .eq("category", category)
+          .eq("quiz_id", quizId)
           .eq("language", language);
 
         if (error) throw error;
-        
-        // Fallback: If no questions found for active language, fetch any for this category
+
+        // Fallback: If no questions found for active language, fetch any for this quiz_id
         if (!data || data.length === 0) {
           const fallbackRes = await supabase
             .from("questions")
@@ -77,7 +77,7 @@ export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizS
                 order_index
               )
             `)
-            .eq("category", category);
+            .eq("quiz_id", quizId);
           data = fallbackRes.data;
         }
 
@@ -100,7 +100,7 @@ export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizS
     };
 
     fetchQuestions();
-  }, [category, language]);
+  }, [quizId, language]);
 
   // Start timer when a new question mounts
   useEffect(() => {
@@ -114,7 +114,7 @@ export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizS
       timerRef.current = window.setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
-            clearInterval(timerRef.current!);
+            if (timerRef.current) clearInterval(timerRef.current);
             handleTimeUp();
             return 0;
           }
@@ -125,77 +125,72 @@ export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizS
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [currentIndex, questions, isAnswerSubmitted, isCompleted]);
+  }, [currentIndex, isAnswerSubmitted, isCompleted, questions]);
 
   const handleTimeUp = () => {
-    if (!isAnswerSubmitted) {
-      setIsAnswerSubmitted(true);
-      // Auto-submit with no selection (wrong answer)
-      const timeTaken = Date.now() - questionStartTimeRef.current;
-      setTotalTimeTaken(prev => prev + timeTaken);
-    }
+    setIsAnswerSubmitted(true);
   };
 
-  const handleSelectOption = (answerId: string) => {
+  const handleSelectAnswer = (ansId: string) => {
     if (isAnswerSubmitted) return;
-    
-    // Stop the timer
-    if (timerRef.current) clearInterval(timerRef.current);
-    
-    setSelectedAnswerId(answerId);
-    setIsAnswerSubmitted(true);
-    
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+
     const timeTaken = Date.now() - questionStartTimeRef.current;
-    setTotalTimeTaken(prev => prev + timeTaken);
+    setTotalTimeTaken((prev) => prev + timeTaken);
+
+    setSelectedAnswerId(ansId);
+    setIsAnswerSubmitted(true);
 
     const currentQ = questions[currentIndex];
-    const selected = currentQ?.answers?.find((a: any) => a.id === answerId);
-    
-    if (selected?.is_correct) {
-      setCorrectCount(prev => prev + 1);
-      
-      // Calculate Kahoot-style points
-      const basePoints = currentQ.points || 20;
-      const speedMultiplier = Math.max(0, timeLeft / maxTime); // 1.0 to 0.0 depending on how fast
-      const speedBonus = Math.round(basePoints * speedMultiplier);
-      
-      setTotalXP(prev => prev + basePoints + speedBonus);
+    const isCorrect = currentQ.answers?.find((a: any) => a.id === ansId)?.is_correct;
+
+    if (isCorrect) {
+      setCorrectCount((prev) => prev + 1);
+
+      let points = currentQ.points || 100;
+      const percentageTime = Math.max(0, timeLeft) / (maxTime || 15);
+      if (percentageTime > 0.5) points += 20;
+
+      setTotalXP((prev) => prev + points);
     }
   };
 
   const handleNext = () => {
-    if (currentIndex + 1 < questions.length) {
+    if (currentIndex < questions.length - 1) {
       setCurrentIndex((prev) => prev + 1);
       setSelectedAnswerId(null);
       setIsAnswerSubmitted(false);
     } else {
       setIsCompleted(true);
-      setShowSummary(true);
+      setTimeout(() => setShowSummary(true), 500);
     }
   };
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center px-6 py-12 h-full min-h-[600px]">
-        <div className="w-12 h-12 rounded-full border-4 border-[#B3D59F] border-t-transparent animate-spin mb-4" />
-        <p className="text-[14px] font-bold text-[#1A2816]">{t("quizzes.loading", "Loading Quiz...")}</p>
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[400px]">
+        <div className="w-10 h-10 border-4 border-[#D8E8D0] border-t-[#3D6B2A] rounded-full animate-spin"></div>
       </div>
     );
   }
 
   if (errorMsg) {
     return (
-      <div className="flex flex-col items-center justify-center px-6 py-12 text-center h-full min-h-[600px]">
-        <div className="w-14 h-14 rounded-2xl bg-[#FFF4F6] text-[#C0384E] flex items-center justify-center mb-3">
-          <AlertCircle size={28} />
+      <div className="p-6">
+        <div className="bg-[#FFF4F6] text-[#C0384E] p-4 rounded-xl flex items-start gap-3">
+          <AlertCircle size={20} className="shrink-0 mt-0.5" />
+          <p className="text-[14px] font-bold" style={{ fontFamily: "'Nunito', sans-serif" }}>
+            {errorMsg}
+          </p>
         </div>
-        <h3 className="text-[18px] font-extrabold text-[#1A2816] mb-1">{t("quizzes.oops", "Oops!")}</h3>
-        <p className="text-[13px] text-[#6B7C6B] mb-5 max-w-[260px]">{errorMsg}</p>
         <button
           onClick={onFinish}
-          className="px-6 py-3 rounded-xl bg-[#B3D59F] text-[#1A3312] font-bold text-[14px] cursor-pointer"
+          className="mt-6 w-full py-4 rounded-2xl border-2 border-[#D8E8D0] text-[#1A2816] font-bold text-[16px]"
         >
-          {t("quizzes.goBack", "Go Back")}
+          Go Back
         </button>
       </div>
     );
@@ -208,12 +203,12 @@ export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizS
     <>
       <div className="flex flex-col h-full justify-between px-4 pt-3 pb-5 overflow-hidden">
         <div className="flex-1 flex flex-col min-h-0">
-          
+
           {/* Header */}
           <div className="flex items-center justify-between mb-3">
             <div>
               <span className="text-[10px] font-bold text-[#3D6B2A] uppercase tracking-wider block">
-                {category.toUpperCase()} {t("quizzes.quizBadge", "QUIZ")}
+                {t("quizzes.quizBadge", "QUIZ")}
               </span>
               <p className="text-[13px] font-extrabold text-[#1A2816]">
                 {t("quizzes.questionOf", "Question")} {currentIndex + 1} {t("quizzes.of", "of")} {questions.length}
@@ -241,7 +236,7 @@ export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizS
             <h3 className="text-[16px] font-extrabold text-[#1A2816] leading-snug">
               {currentQ.question_text}
             </h3>
-            
+
             {isAnswerSubmitted && (
               <div className="mt-3 inline-block">
                 {selectedAnswerId ? (
@@ -285,7 +280,7 @@ export function SinglePlayerQuizScreen({ category, onFinish }: SinglePlayerQuizS
               return (
                 <button
                   key={ans.id || idx}
-                  onClick={() => handleSelectOption(ans.id)}
+                  onClick={() => handleSelectAnswer(ans.id)}
                   disabled={isAnswerSubmitted}
                   className={`w-full p-4 rounded-2xl border-2 text-left flex items-center gap-3 transition-all cursor-pointer ${cardStyle}`}
                 >

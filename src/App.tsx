@@ -26,7 +26,7 @@ import { CPRPracticeScreen } from "./screens/cpr/CPRPracticeScreen";
 import { LanguageProvider } from "./lib/i18n/LanguageContext";
 
 function AppContent() {
-  const [selectedQuizCategory, setSelectedQuizCategory] = useState<string>("bls");
+  const [selectedQuizId, setSelectedQuizId] = useState<string>("");
   const [historyStack, setHistoryStack] = useState<Screen[]>(() => {
     // Check if user has an active cached profile and saved screen
       const cachedProfile = storage.get(STORAGE_KEYS.PROFILE, null);
@@ -263,15 +263,15 @@ function AppContent() {
             {current === "quizzes" && (
               <QuizzesScreen
                 onExploreCPR={() => navigate("cpr")}
-                onSelectQuiz={(category) => {
-                  setSelectedQuizCategory(category);
+                onSelectQuiz={(quizId) => {
+                  setSelectedQuizId(quizId);
                   navigate("single-player-quiz");
                 }}
               />
             )}
             {current === "single-player-quiz" && (
               <SinglePlayerQuizScreen
-                category={selectedQuizCategory}
+                quizId={selectedQuizId}
                 onFinish={() => navigate("quizzes", true)}
               />
             )}
