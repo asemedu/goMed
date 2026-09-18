@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Heart, Eye, EyeOff } from "lucide-react";
+import { Heart, Eye, EyeOff, GraduationCap, BookOpen } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import { useLanguage } from "../../lib/i18n/LanguageContext";
 
@@ -14,6 +14,7 @@ export function AuthScreen({ onNext }: AuthScreenProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [role, setRole] = useState<"student" | "teacher">("student");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -64,16 +65,30 @@ export function AuthScreen({ onNext }: AuthScreenProps) {
     setLoading(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data: signUpData, error } = await supabase.auth.signUp({
           email: username,
           password: password,
           options: {
             data: {
               display_name: displayName.trim(),
+              role: role,
             },
           },
         });
         if (error) throw error;
+
+        // Save role to profiles table
+        if (signUpData.user) {
+          await supabase.from("profiles").upsert(
+            {
+              id: signUpData.user.id,
+              display_name: displayName.trim(),
+              role: role,
+            },
+            { onConflict: "id" }
+          );
+        }
+
         onNext();
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -154,6 +169,48 @@ export function AuthScreen({ onNext }: AuthScreenProps) {
                 className="w-full px-4 py-3.5 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] placeholder-[#6B7C6B] focus:outline-none focus:border-[#B3D59F] focus:ring-2 focus:ring-[#B3D59F]/30 transition-all text-[14px]"
                 style={{ fontFamily: "'Nunito', sans-serif" }}
               />
+            </div>
+          )}
+
+          {mode === "signup" && (
+            <div>
+              <label
+                className="text-[13px] font-bold text-[#1A2816] mb-1.5 block"
+                style={{ fontFamily: "'Lexend', sans-serif" }}
+              >
+                {t("auth.roleLabel", "I am a...")}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { id: "student" as const, icon: GraduationCap, label: t("auth.roleStudent", "Student") },
+                  { id: "teacher" as const, icon: BookOpen, label: t("auth.roleTeacher", "Teacher") },
+                ] as const).map(({ id, icon: Icon, label }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setRole(id)}
+                    className={`flex items-center gap-2.5 p-3.5 rounded-xl border-2 transition-all cursor-pointer ${
+                      role === id
+                        ? "bg-[#F0F8EC] border-[#B3D59F] ring-1 ring-[#B3D59F]/50 shadow-sm"
+                        : "bg-[#F7FBF5] border-[#D8E8D0] hover:bg-white"
+                    }`}
+                  >
+                    <Icon
+                      size={20}
+                      className={role === id ? "text-[#3D6B2A]" : "text-[#6B7C6B]"}
+                      strokeWidth={2.5}
+                    />
+                    <span
+                      className={`text-[14px] font-bold ${
+                        role === id ? "text-[#1A3312]" : "text-[#6B7C6B]"
+                      }`}
+                      style={{ fontFamily: "'Lexend', sans-serif" }}
+                    >
+                      {label}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

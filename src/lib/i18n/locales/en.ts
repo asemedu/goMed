@@ -75,6 +75,16 @@ export const en = {
     avgSpeed: "Avg Speed",
     perQuestion: "per question",
     modules: {
+      practica_rcp_live: {
+        title: "Practica RCP Live",
+        categoryName: "Live CPR Practice",
+        desc: "Hands-on CPR practice with real-time AI feedback.",
+      },
+      apel_112: {
+        title: "Apel 112",
+        categoryName: "Emergency Call 112",
+        desc: "Emergency 112 call protocol and proper communication.",
+      },
       siguranta: {
         title: "1. Safety, Legislation & Fundamentals",
         categoryName: "Safety & Legislation",
@@ -336,6 +346,9 @@ export const en = {
     resetLinkSent: "Password reset link has been sent to your email!",
     fillAllFields: "Please fill in all fields.",
     enterDisplayName: "Please enter a display name.",
+    roleLabel: "I am a...",
+    roleStudent: "Student",
+    roleTeacher: "Teacher",
     passwordsDoNotMatch: "Passwords do not match.",
     authFailed: "Authentication failed.",
     resetModalTitle: "Change Password",

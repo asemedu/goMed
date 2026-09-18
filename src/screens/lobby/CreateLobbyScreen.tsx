@@ -15,28 +15,42 @@ export function CreateLobbyScreen({
   const { t, language } = useLanguage();
   const [school, setSchool] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(8);
-  const [category, setCategory] = useState("siguranta");
+  const [selectedQuizzes, setSelectedQuizzes] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [quizzes, setQuizzes] = useState<any[]>([]);
 
-  const moduleIds = [
-    "siguranta",
-    "evaluare_112",
-    "rcp_adulti",
-    "aed",
-    "rcp_copii",
-    "obstructie",
-    "pls",
-    "hemoragii",
-    "traumatisme",
-    "arsuri",
-    "intoxicatii",
-  ];
+  React.useEffect(() => {
+    const fetchQuizzes = async () => {
+      const { data } = await supabase.from("quizzes").select("*").order("created_at", { ascending: true });
+      if (data) {
+        setQuizzes(data);
+      }
+    };
+    fetchQuizzes();
+  }, []);
+
+  const toggleQuiz = (id: string) => {
+    setSelectedQuizzes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   const handleCreate = async () => {
     setErrorMsg("");
     if (!school.trim()) {
       setErrorMsg(t("lobby.errEmptySchool", "Please enter your school or organization name."));
+      return;
+    }
+
+    if (selectedQuizzes.size === 0) {
+      setErrorMsg(t("lobby.errNoModule", "Please select at least one challenge module."));
       return;
     }
 
@@ -69,32 +83,13 @@ export function CreateLobbyScreen({
 
       if (insertError) throw insertError;
 
-      // 2. Link relevant questions to this lobby in lobby_questions matching language
-      let { data: qData } = await supabase
-        .from("questions")
-        .select("id")
-        .eq("category", category)
-        .eq("language", language)
-        .limit(10);
-
-      // Fallback: If no questions found for this language, fetch any for this category
-      if (!qData || qData.length === 0) {
-        const fallbackQ = await supabase
-          .from("questions")
-          .select("id")
-          .eq("category", category)
-          .limit(10);
-        qData = fallbackQ.data;
-      }
-
-      if (qData && qData.length > 0) {
-        const links = qData.map((q: any, idx: number) => ({
-          lobby_id: newLobby.id,
-          question_id: q.id,
-          order_index: idx + 1,
-        }));
-        await supabase.from("lobby_questions").insert(links);
-      }
+      // 2. Link relevant quizzes to this lobby in lobby_quizzes
+      const links = Array.from(selectedQuizzes).map((quizId, idx) => ({
+        lobby_id: newLobby.id,
+        quiz_id: quizId,
+        order_index: idx + 1,
+      }));
+      await supabase.from("lobby_quizzes").insert(links);
 
       // 3. Ensure host profile exists & add host to participants
       const hostDisplayName =
@@ -206,25 +201,38 @@ export function CreateLobbyScreen({
           </div>
         </div>
 
-        {/* Challenge Category */}
+        {/* Challenge Categories (Multi-select) */}
         <div>
           <label
             className="text-[13px] font-bold text-[#1A2816] mb-1.5 block"
             style={{ fontFamily: "'Lexend', sans-serif" }}
           >
-            {t("lobby.moduleLabel", "Challenge Module")}
+            {t("lobby.moduleLabel", "Challenge Modules")}
           </label>
+          <p
+            className="text-[11px] text-[#6B7C6B] mb-2"
+            style={{ fontFamily: "'Nunito', sans-serif" }}
+          >
+            {t("lobby.moduleMultiHint", "Select one or more modules for this session")}
+          </p>
           <div className="space-y-2">
-            {moduleIds.map((id) => {
-              const title = t(`quizzes.modules.${id}.title`);
-              const desc = t(`quizzes.modules.${id}.desc`);
+            {quizzes.length === 0 && (
+              <p
+                className="text-[13px] text-[#6B7C6B] italic p-4 text-center bg-[#F7FBF5] rounded-xl border border-[#D8E8D0]"
+                style={{ fontFamily: "'Nunito', sans-serif" }}
+              >
+                No quizzes available. Please add quizzes to the database.
+              </p>
+            )}
+            {quizzes.map((quiz) => {
+              const isSelected = selectedQuizzes.has(quiz.id);
               return (
                 <button
-                  key={id}
+                  key={quiz.id}
                   type="button"
-                  onClick={() => setCategory(id)}
+                  onClick={() => toggleQuiz(quiz.id)}
                   className={`w-full p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
-                    category === id
+                    isSelected
                       ? "bg-[#F0F8EC] border-[#B3D59F] ring-1 ring-[#B3D59F]"
                       : "bg-white border-[#E8EDE6] hover:bg-[#F7FBF5]"
                   }`}
@@ -234,23 +242,23 @@ export function CreateLobbyScreen({
                       className="text-[14px] font-extrabold text-[#1A2816]"
                       style={{ fontFamily: "'Lexend', sans-serif" }}
                     >
-                      {title}
+                      {quiz.name || quiz.code || "Untitled Quiz"}
                     </p>
                     <p
                       className="text-[12px] text-[#6B7C6B]"
                       style={{ fontFamily: "'Nunito', sans-serif" }}
                     >
-                      {desc}
+                      {quiz.is_ar ? "AR Enabled" : `Code: ${quiz.code}`}
                     </p>
                   </div>
                   <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                      category === id
+                    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 ml-2 ${
+                      isSelected
                         ? "border-[#3D6B2A] bg-[#3D6B2A]"
                         : "border-[#D8E8D0]"
                     }`}
                   >
-                    {category === id && (
+                    {isSelected && (
                       <Check size={12} className="text-white" strokeWidth={3} />
                     )}
                   </div>

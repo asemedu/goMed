@@ -77,6 +77,16 @@ export const ro: Translations = {
     avgSpeed: "Viteză Medie",
     perQuestion: "per întrebare",
     modules: {
+      practica_rcp_live: {
+        title: "Practica RCP Live",
+        categoryName: "Practică RCP Live",
+        desc: "Practică RCP cu feedback AI în timp real.",
+      },
+      apel_112: {
+        title: "Apel 112",
+        categoryName: "Apel de Urgență 112",
+        desc: "Protocolul de apel 112 și comunicarea corectă cu dispeceratul.",
+      },
       siguranta: {
         title: "1. Siguranță, Legislație și Baze",
         categoryName: "Siguranță & Legislație",
@@ -338,6 +348,9 @@ export const ro: Translations = {
     resetLinkSent: "Linkul de resetare a parolei a fost trimis pe email!",
     fillAllFields: "Te rugăm să completezi toate câmpurile.",
     enterDisplayName: "Te rugăm să introduci un nume afișat.",
+    roleLabel: "Sunt...",
+    roleStudent: "Elev",
+    roleTeacher: "Profesor",
     passwordsDoNotMatch: "Parolele nu se potrivesc.",
     authFailed: "Autentificarea a eșuat.",
     resetModalTitle: "Modifică Parola",

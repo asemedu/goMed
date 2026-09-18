@@ -16,6 +16,7 @@ export interface CachedProfile {
   points: number;
   ranking: number;
   streak?: number;
+  role?: "student" | "teacher";
   avatar_url?: string;
   updated_at?: string;
 }
