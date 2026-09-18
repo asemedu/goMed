@@ -5,11 +5,12 @@ import { useLanguage } from "../../lib/i18n/LanguageContext";
 
 interface QuizScreenProps {
   lobby: any;
+  stationQuiz?: any;
   onFinish: () => void;
 }
 
-export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
-  const { t } = useLanguage();
+export function QuizScreen({ lobby, stationQuiz, onFinish }: QuizScreenProps) {
+  const { t, language } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -18,8 +19,9 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
   const [score, setScore] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  // Load questions for this lobby
+  // Load questions for this station or lobby
   useEffect(() => {
     const fetchQuestions = async () => {
       setLoading(true);
@@ -27,8 +29,62 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
       try {
         let loadedQuestions: any[] = [];
 
-        // 1. Try to fetch questions linked to this lobby
-        if (lobby?.id) {
+        // 1. If stationQuiz is provided (Single-Station Hunt Mode)
+        if (stationQuiz) {
+          const quizTargetId = stationQuiz.id;
+          const quizCategory = stationQuiz.code || stationQuiz.id;
+
+          // Attempt A: Match by quiz_id & language
+          const { data: qData, error: qError } = await supabase
+            .from("questions")
+            .select(`
+              id,
+              question_text,
+              category,
+              points,
+              time_limit_seconds,
+              language,
+              answers (
+                id,
+                answer_text,
+                is_correct,
+                order_index
+              )
+            `)
+            .eq("quiz_id", quizTargetId)
+            .eq("language", language);
+
+          if (!qError && qData && qData.length > 0) {
+            loadedQuestions = qData;
+          } else {
+            // Attempt B: Match by category or code
+            const { data: catData, error: catError } = await supabase
+              .from("questions")
+              .select(`
+                id,
+                question_text,
+                category,
+                points,
+                time_limit_seconds,
+                language,
+                answers (
+                  id,
+                  answer_text,
+                  is_correct,
+                  order_index
+                )
+              `)
+              .or(`category.ilike.%${quizCategory}%,quiz_id.eq.${quizTargetId}`);
+
+            if (!catError && catData && catData.length > 0) {
+              const langMatched = catData.filter((q) => q.language === language);
+              loadedQuestions = langMatched.length > 0 ? langMatched : catData;
+            }
+          }
+        }
+
+        // 2. Multi-quiz lobby fallback
+        if (loadedQuestions.length === 0 && lobby?.id) {
           const { data: lqData, error: lqError } = await supabase
             .from("lobby_quizzes")
             .select(`
@@ -64,7 +120,7 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
           }
         }
 
-        // 2. Fallback: If no lobby_questions, fetch from questions table
+        // 3. General Fallback: Any questions from questions table
         if (loadedQuestions.length === 0) {
           const { data: allQ, error: allQError } = await supabase
             .from("questions")
@@ -81,7 +137,7 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
                 order_index
               )
             `)
-            .limit(5);
+            .limit(4);
 
           if (!allQError && allQ) {
             loadedQuestions = allQ;
@@ -106,7 +162,106 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
     };
 
     fetchQuestions();
-  }, [lobby?.id, t]);
+  }, [lobby?.id, stationQuiz, language, t]);
+
+  // Sync completion with DB and Realtime
+  const syncCompletionProgress = async (finalScore: number) => {
+    if (!lobby?.id || isSyncing) return;
+    setIsSyncing(true);
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const stationIdToRecord = stationQuiz?.id || stationQuiz?.code || "station_completed";
+
+      // 1. Try atomic RPC record_hunt_quiz_completion
+      let rpcSuccess = false;
+      try {
+        const { error: rpcErr } = await supabase.rpc("record_hunt_quiz_completion", {
+          p_lobby_id: lobby.id,
+          p_user_id: user.id,
+          p_quiz_id: stationIdToRecord,
+          p_points: finalScore,
+        });
+        if (!rpcErr) rpcSuccess = true;
+      } catch {
+        rpcSuccess = false;
+      }
+
+      // 2. Direct Fallback if RPC is not present
+      if (!rpcSuccess) {
+        const { data: existing } = await supabase
+          .from("lobby_participants")
+          .select("current_score, completed_quiz_ids, quizzes_completed_count")
+          .eq("lobby_id", lobby.id)
+          .eq("user_id", user.id)
+          .single();
+
+        const curScore = existing?.current_score || 0;
+        const curCompleted: string[] = Array.isArray(existing?.completed_quiz_ids)
+          ? existing.completed_quiz_ids
+          : [];
+        const curCount = existing?.quizzes_completed_count || curCompleted.length || 0;
+
+        if (!curCompleted.includes(stationIdToRecord)) {
+          const updatedCompleted = [...curCompleted, stationIdToRecord];
+          await supabase
+            .from("lobby_participants")
+            .update({
+              current_score: curScore + finalScore,
+              completed_quiz_ids: updatedCompleted,
+              quizzes_completed_count: curCount + 1,
+            })
+            .eq("lobby_id", lobby.id)
+            .eq("user_id", user.id);
+        }
+      }
+
+      // 3. Broadcast real-time event to host and peers
+      const existingChannel = supabase
+        .getChannels()
+        .find((ch) => ch.topic === `realtime:hunt-session-${lobby.id}` || ch.topic === `hunt-session-${lobby.id}`);
+
+      if (existingChannel && existingChannel.state === "joined") {
+        existingChannel.send({
+          type: "broadcast",
+          event: "hunt_progress_updated",
+          payload: {
+            lobbyId: lobby.id,
+            userId: user.id,
+            quizId: stationIdToRecord,
+            points: finalScore,
+          },
+        });
+      } else {
+        const syncChannel = supabase.channel(`hunt-session-${lobby.id}`, {
+          config: { broadcast: { self: true } },
+        });
+        syncChannel.subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            syncChannel.send({
+              type: "broadcast",
+              event: "hunt_progress_updated",
+              payload: {
+                lobbyId: lobby.id,
+                userId: user.id,
+                quizId: stationIdToRecord,
+                points: finalScore,
+              },
+            });
+          }
+        });
+      }
+    } catch (err) {
+      console.error("Failed to sync completion progress:", err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const currentQ = questions[currentIndex];
 
@@ -124,36 +279,22 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
       );
       const isCorrect = Boolean(chosenAns?.is_correct);
 
+      let newScore = score;
       if (isCorrect) {
         const pointsEarned = currentQ.points || 100;
-        setScore((prev) => prev + pointsEarned);
-
-        // Update score in lobby_participants
-        try {
-          const {
-            data: { user },
-          } = await supabase.auth.getUser();
-          if (user && lobby?.id) {
-            await supabase.rpc("increment_participant_score", {
-              p_lobby_id: lobby.id,
-              p_user_id: user.id,
-              p_points: pointsEarned,
-            });
-          }
-        } catch (e) {
-          console.error("Score increment failed:", e);
-        }
+        newScore = score + pointsEarned;
+        setScore(newScore);
       }
 
       setIsAnswerSubmitted(true);
     } else {
-      // Move to next question or complete
       if (currentIndex + 1 < questions.length) {
         setCurrentIndex((prev) => prev + 1);
         setSelectedAnswerId(null);
         setIsAnswerSubmitted(false);
       } else {
         setIsCompleted(true);
+        syncCompletionProgress(score);
       }
     }
   };
@@ -213,7 +354,7 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
         className="flex flex-col items-center justify-center px-6 py-8 text-center"
         style={{ minHeight: 650 }}
       >
-        <div className="w-20 h-20 rounded-3xl bg-[#F0F8EC] border-2 border-[#B3D59F] text-[#3D6B2A] flex items-center justify-center mb-4 shadow-lg">
+        <div className="w-20 h-20 rounded-3xl bg-[#F0F8EC] border-2 border-[#B3D59F] text-[#3D6B2A] flex items-center justify-center mb-4 shadow-lg animate-bounce-short">
           <Trophy size={40} />
         </div>
 
@@ -221,7 +362,7 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
           className="text-[11px] font-extrabold text-[#3D6B2A] bg-[#E8F5E2] border border-[#B3D59F] px-3 py-1 rounded-full uppercase tracking-wider mb-2"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          {t("quizzes.summaryTitle", "Quiz Complete")}
+          {stationQuiz?.name || stationQuiz?.code || t("quizzes.summaryTitle", "Quiz Complete")}
         </span>
 
         <h3
@@ -234,7 +375,9 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
           className="text-[13px] text-[#6B7C6B] mb-6"
           style={{ fontFamily: "'Nunito', sans-serif" }}
         >
-          {t("lobby.completedAll", "You have completed all questions in this session.")}
+          {stationQuiz
+            ? "Ai completat stația de prim ajutor! Punctele au fost salvate."
+            : t("lobby.completedAll", "You have completed all questions in this session.")}
         </p>
 
         {/* Score Card */}
@@ -255,10 +398,11 @@ export function QuizScreen({ lobby, onFinish }: QuizScreenProps) {
 
         <button
           onClick={onFinish}
-          className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[16px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all cursor-pointer"
+          className="w-full py-4 rounded-2xl bg-[#B3D59F] text-[#1A3312] font-extrabold text-[16px] shadow-md hover:bg-[#9DC885] active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
           style={{ fontFamily: "'Lexend', sans-serif" }}
         >
-          {t("lobby.finishDashboard", "Finish & Return to Dashboard")}
+          <span>{stationQuiz ? "Continuă Vânătoarea" : t("lobby.finishDashboard", "Finish & Return to Dashboard")}</span>
+          <ArrowRight size={18} strokeWidth={2.5} />
         </button>
       </div>
     );

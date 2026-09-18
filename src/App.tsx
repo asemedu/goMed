@@ -21,15 +21,110 @@ import { ARTryScreen } from "./screens/ar/ARTryScreen";
 import { CreateLobbyScreen } from "./screens/lobby/CreateLobbyScreen";
 import { LobbyScreen } from "./screens/lobby/LobbyScreen";
 import { QuizScreen } from "./screens/lobby/QuizScreen";
+import { TreasureHuntHubScreen } from "./screens/lobby/TreasureHuntHubScreen";
+import { TeacherHuntControllerScreen } from "./screens/lobby/TeacherHuntControllerScreen";
 import { ProfileScreen } from "./screens/main/ProfileScreen";
 import { CPRPracticeScreen } from "./screens/cpr/CPRPracticeScreen";
 import { LanguageProvider } from "./lib/i18n/LanguageContext";
 
+// Error Boundary to catch any render errors and prevent blank screens
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("[ErrorBoundary caught an error]:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#F7FBF5] flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-16 h-16 rounded-3xl bg-[#FFF0F2] border-2 border-[#FAD2D2] text-[#C0384E] flex items-center justify-center mb-4 shadow-lg text-2xl font-bold">
+            ⚠️
+          </div>
+          <h2
+            className="text-[20px] font-extrabold text-[#1A2816] mb-2"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+          >
+            A apărut o problemă la afișare
+          </h2>
+          <p className="text-[12px] text-[#C0384E] bg-white p-3 rounded-xl border border-[#FCC8D0] mb-5 max-w-sm font-mono text-left overflow-auto max-h-32">
+            {this.state.error?.message || "Eroare necunoscută"}
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.reload();
+              }}
+              className="px-5 py-3 rounded-xl bg-[#3D6B2A] text-white font-bold text-[14px] shadow-md hover:bg-[#2E5220] transition-all cursor-pointer"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              Reîncarcă Pagina
+            </button>
+            <button
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.href = "/?screen=dashboard";
+              }}
+              className="px-5 py-3 rounded-xl bg-[#F0F5EE] border border-[#D4ECC5] text-[#1A3312] font-bold text-[14px] hover:bg-[#E8EDE6] transition-all cursor-pointer"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              Mergi la Dashboard
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function AppContent() {
   const [selectedQuizId, setSelectedQuizId] = useState<string>("");
   const [historyStack, setHistoryStack] = useState<Screen[]>(() => {
-    // Check if user has an active cached profile and saved screen
-      const cachedProfile = storage.get(STORAGE_KEYS.PROFILE, null);
+    // Check if URL query specifies a screen first
+    const urlParams = new URLSearchParams(window.location.search);
+    const screenParam = urlParams.get("screen") as Screen | null;
+    const validScreens: Screen[] = [
+      "landing",
+      "cpr",
+      "cpr-practice",
+      "onboarding",
+      "auth",
+      "dashboard",
+      "lobby",
+      "profile",
+      "create-lobby",
+      "quiz",
+      "quizzes",
+      "single-player-quiz",
+      "ar-hub",
+      "ar-try",
+      "treasure-hunt-hub",
+      "teacher-hunt-controller",
+    ];
+    if (screenParam && validScreens.includes(screenParam)) {
+      return [screenParam];
+    }
+
+    const cachedProfile = storage.get(STORAGE_KEYS.PROFILE, null);
     const cachedScreen = storage.get<Screen>(
       STORAGE_KEYS.LAST_SCREEN,
       "dashboard"
@@ -47,6 +142,7 @@ function AppContent() {
   const [activeLobby, setActiveLobby] = useState<any>(() =>
     storage.get(STORAGE_KEYS.ACTIVE_LOBBY, null)
   );
+  const [activeStationQuiz, setActiveStationQuiz] = useState<any>(null);
   const [selectedMovement, setSelectedMovement] = useState<any>(null);
   const [kickedToast, setKickedToast] = useState<string | null>(null);
   const current = historyStack[historyStack.length - 1];
@@ -82,6 +178,28 @@ function AppContent() {
     // Check live Supabase session and hydrate state
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const screenParam = urlParams.get("screen") as Screen | null;
+        const validLoggedInScreens: Screen[] = [
+          "dashboard",
+          "quizzes",
+          "ar-hub",
+          "profile",
+          "lobby",
+          "create-lobby",
+          "quiz",
+          "single-player-quiz",
+          "ar-try",
+          "cpr-practice",
+          "treasure-hunt-hub",
+          "teacher-hunt-controller",
+        ];
+
+        if (screenParam && validLoggedInScreens.includes(screenParam)) {
+          setHistoryStack([screenParam]);
+          return;
+        }
+
         const lastScreen = storage.get<Screen>(
           STORAGE_KEYS.LAST_SCREEN,
           "dashboard"
@@ -112,6 +230,8 @@ function AppContent() {
               "profile",
               "quiz",
               "lobby",
+              "treasure-hunt-hub",
+              "teacher-hunt-controller",
             ].includes(cur)
           ) {
             return ["landing"];
@@ -124,8 +244,15 @@ function AppContent() {
     const handlePopState = (e: PopStateEvent) => {
       if (e.state && typeof e.state.index === "number") {
         const newIndex = e.state.index;
-        // Keep the stack aligned with the history index
         setHistoryStack((prev) => prev.slice(0, newIndex + 1));
+      } else if (e.state && e.state.screen) {
+        setHistoryStack((prev) => [...prev, e.state.screen]);
+      } else {
+        const urlParams = new URLSearchParams(window.location.search);
+        const screenParam = urlParams.get("screen") as Screen | null;
+        if (screenParam) {
+          setHistoryStack((prev) => [...prev.slice(0, -1), screenParam]);
+        }
       }
     };
 
@@ -141,7 +268,13 @@ function AppContent() {
         storage.clearUserSession();
         setHistoryStack(["auth"]);
       } else if (event === "SIGNED_IN" && session) {
-        setHistoryStack(["dashboard"]);
+        setHistoryStack((prev) => {
+          const cur = prev[prev.length - 1];
+          if (["landing", "onboarding", "auth"].includes(cur)) {
+            return ["dashboard"];
+          }
+          return prev;
+        });
       }
     });
 
@@ -175,9 +308,35 @@ function AppContent() {
     }
   };
 
+  const getFallbackParent = (screen: Screen): Screen => {
+    switch (screen) {
+      case "single-player-quiz":
+        return "quizzes";
+      case "ar-try":
+      case "cpr-practice":
+        return "ar-hub";
+      case "quiz":
+        return activeStationQuiz ? "treasure-hunt-hub" : "dashboard";
+      case "auth":
+      case "onboarding":
+      case "cpr":
+        return "landing";
+      case "dashboard":
+      case "landing":
+        return screen;
+      default:
+        return "dashboard";
+    }
+  };
+
+  const canGoBack = current !== "dashboard" && current !== "landing";
+
   const goBack = () => {
     if (historyStack.length > 1) {
       window.history.back();
+    } else if (canGoBack) {
+      const fallback = getFallbackParent(current);
+      navigate(fallback, true);
     }
   };
 
@@ -207,12 +366,12 @@ function AppContent() {
           {/* Back Button Header with ASEM Branding */}
           <div className="w-full px-5 pt-5 pb-1 flex items-center justify-between z-10 shrink-0 bg-transparent gap-2">
             <button
-              onClick={historyStack.length > 1 ? goBack : undefined}
-              disabled={historyStack.length <= 1}
+              onClick={canGoBack ? goBack : undefined}
+              disabled={!canGoBack}
               className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shrink-0 ${
-                historyStack.length > 1
+                canGoBack
                   ? "bg-white/80 backdrop-blur-md shadow-sm border border-[#E8EDE6] text-[#1A2816] hover:bg-white active:scale-95 cursor-pointer"
-                  : "bg-[#F7FBF5] border border-[#E8EDE6] text-[#6B7C6B] cursor-not-allowed"
+                  : "bg-[#F7FBF5] border border-[#E8EDE6] text-[#6B7C6B] opacity-40 cursor-not-allowed"
               }`}
               aria-label="Go back"
             >
@@ -318,19 +477,51 @@ function AppContent() {
                   setActiveLobby(lobby);
                   storage.set(STORAGE_KEYS.ACTIVE_LOBBY, lobby);
                 }}
-                onStartGame={(lobby) => {
+                onStartGame={(lobby, isHost) => {
                   setActiveLobby(lobby);
-                  navigate("quiz", true);
+                  if (isHost) {
+                    navigate("teacher-hunt-controller", true);
+                  } else {
+                    navigate("treasure-hunt-hub", true);
+                  }
                 }}
                 onKicked={handleUserKicked}
+              />
+            )}
+            {current === "teacher-hunt-controller" && (
+              <TeacherHuntControllerScreen
+                lobby={activeLobby}
+                onFinish={() => {
+                  storage.remove(STORAGE_KEYS.ACTIVE_LOBBY);
+                  navigate("dashboard", true);
+                }}
+              />
+            )}
+            {current === "treasure-hunt-hub" && (
+              <TreasureHuntHubScreen
+                lobby={activeLobby}
+                onScanStation={(quiz) => {
+                  setActiveStationQuiz(quiz);
+                  navigate("quiz");
+                }}
+                onFinish={() => {
+                  storage.remove(STORAGE_KEYS.ACTIVE_LOBBY);
+                  navigate("dashboard", true);
+                }}
               />
             )}
             {current === "quiz" && (
               <QuizScreen
                 lobby={activeLobby}
+                stationQuiz={activeStationQuiz}
                 onFinish={() => {
-                  storage.remove(STORAGE_KEYS.ACTIVE_LOBBY);
-                  navigate("dashboard");
+                  if (activeStationQuiz) {
+                    setActiveStationQuiz(null);
+                    navigate("treasure-hunt-hub", true);
+                  } else {
+                    storage.remove(STORAGE_KEYS.ACTIVE_LOBBY);
+                    navigate("dashboard");
+                  }
                 }}
               />
             )}
@@ -388,8 +579,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <LanguageProvider>
-      <AppContent />
-    </LanguageProvider>
+    <ErrorBoundary>
+      <LanguageProvider>
+        <AppContent />
+      </LanguageProvider>
+    </ErrorBoundary>
   );
 }

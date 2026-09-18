@@ -12,7 +12,9 @@ export type Screen =
   | "quizzes"
   | "single-player-quiz"
   | "ar-hub"
-  | "ar-try";
+  | "ar-try"
+  | "treasure-hunt-hub"
+  | "teacher-hunt-controller";
 
 export interface UserProfile {
   id?: string;

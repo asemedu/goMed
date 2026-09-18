@@ -8,6 +8,8 @@ import {
   Crown,
   ArrowRight,
   Clock,
+  LogOut,
+  AlertTriangle,
 } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import { LobbyQRCodeModal } from "../../components/modals/LobbyQRCodeModal";
@@ -16,7 +18,7 @@ import { useLanguage } from "../../lib/i18n/LanguageContext";
 interface LobbyScreenProps {
   initialLobby?: any;
   _onLeave?: () => void;
-  onStartGame?: (lobby: any) => void;
+  onStartGame?: (lobby: any, isHost?: boolean) => void;
   onLobbyJoined?: (lobby: any) => void;
   onKicked?: (lobbyId?: string) => void;
 }
@@ -33,6 +35,14 @@ export function LobbyScreen({
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [lobby, setLobby] = useState<any>(initialLobby || null);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+
+  useEffect(() => {
+    setLobby(initialLobby || null);
+    if (initialLobby?.code) {
+      setCode(initialLobby.code);
+    }
+  }, [initialLobby]);
   const [participants, setParticipants] = useState<
     { userId: string; name: string; isCurrentUser: boolean; isHost: boolean }[]
   >([]);
@@ -235,8 +245,16 @@ export function LobbyScreen({
   useEffect(() => {
     if (!lobby?.id) return;
 
-    // 1. Unified Real-Time Channel
-    const channel = supabase.channel(`lobby-room-${lobby.id}`, {
+    // 1. Unified Real-Time Channel with cleanup
+    const channelName = `lobby-room-${lobby.id}`;
+    const channels = supabase.getChannels();
+    for (const ch of channels) {
+      if (ch.topic === `realtime:${channelName}` || ch.topic === channelName) {
+        supabase.removeChannel(ch);
+      }
+    }
+
+    const channel = supabase.channel(channelName, {
       config: {
         broadcast: { self: true },
       },
@@ -267,7 +285,9 @@ export function LobbyScreen({
           filter: `id=eq.${lobby.id}`,
         },
         (payload: any) => {
-          if (payload.new?.status) {
+          if (payload.new?.status === "active") {
+            setLobby((prev: any) => ({ ...prev, status: "active" }));
+          } else if (payload.new?.status) {
             setLobby((prev: any) => ({ ...prev, status: payload.new.status }));
           }
         }
@@ -292,7 +312,7 @@ export function LobbyScreen({
       })
       .subscribe();
 
-    // 2. Heartbeat Sync Polling Fallback (Runs every 2s to guarantee mobile sync)
+    // 2. Heartbeat Sync Polling Fallback (Runs every 1.2s to guarantee mobile sync)
     const heartbeatTimer = setInterval(async () => {
       try {
         const { data: latestLobby } = await supabase
@@ -301,7 +321,9 @@ export function LobbyScreen({
           .eq("id", lobby.id)
           .single();
 
-        if (latestLobby?.status && latestLobby.status !== lobby.status) {
+        if (latestLobby?.status === "active") {
+          setLobby((prev: any) => ({ ...prev, status: "active" }));
+        } else if (latestLobby?.status && latestLobby.status !== lobby.status) {
           setLobby((prev: any) => ({ ...prev, status: latestLobby.status }));
         }
 
@@ -310,7 +332,7 @@ export function LobbyScreen({
       } catch (e) {
         console.warn("[LobbySync] Heartbeat poll error:", e);
       }
-    }, 2000);
+    }, 1200);
 
     return () => {
       clearInterval(heartbeatTimer);
@@ -323,11 +345,11 @@ export function LobbyScreen({
   useEffect(() => {
     if (lobby?.status === "active") {
       const timer = setTimeout(() => {
-        onStartGame?.(lobby);
-      }, 800);
+        onStartGame?.(lobby, isHost);
+      }, 500);
       return () => clearTimeout(timer);
     }
-  }, [lobby?.status, lobby, onStartGame]);
+  }, [lobby?.status, lobby, isHost, onStartGame]);
 
   // Kick participant handler (Host only)
   const handleKickParticipant = async (targetUserId: string) => {
@@ -380,6 +402,7 @@ export function LobbyScreen({
       });
 
       setLobby((prev: any) => ({ ...prev, status: "active" }));
+      onStartGame?.({ ...lobby, status: "active" }, true);
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to start lobby.");
     } finally {
@@ -440,15 +463,34 @@ export function LobbyScreen({
           </p>
         </div>
 
-        {lobby && (
-          <button
-            onClick={() => setShowQRModal(true)}
-            className="flex items-center gap-1.5 bg-[#F0F8EC] border border-[#D4ECC5] text-[#3D6B2A] px-3 py-1.5 rounded-xl text-[12px] font-extrabold shadow-sm hover:bg-[#E2F0DC] active:scale-95 transition-all cursor-pointer"
-            style={{ fontFamily: "'Lexend', sans-serif" }}
-          >
-            <QrCode size={16} /> {t("lobby.qrCodeBtn", "QR Code")}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {lobby && (
+            <button
+              onClick={() => setShowQRModal(true)}
+              className="flex items-center gap-1.5 bg-[#F0F8EC] border border-[#D4ECC5] text-[#3D6B2A] px-3 py-1.5 rounded-xl text-[12px] font-extrabold shadow-sm hover:bg-[#E2F0DC] active:scale-95 transition-all cursor-pointer"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              <QrCode size={16} /> {t("lobby.qrCodeBtn", "QR Code")}
+            </button>
+          )}
+
+          {_onLeave && (
+            <button
+              onClick={() => {
+                if (lobby) {
+                  setShowLeaveConfirm(true);
+                } else {
+                  _onLeave();
+                }
+              }}
+              className="flex items-center gap-1.5 bg-[#FFF0F2] border border-[#FCC8D0] text-[#C0384E] px-3 py-1.5 rounded-xl text-[12px] font-extrabold shadow-sm hover:bg-[#FDE2E6] active:scale-95 transition-all cursor-pointer"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+              title={t("lobby.leaveBtn", "Părăsește")}
+            >
+              <LogOut size={16} /> {t("lobby.leaveBtn", "Părăsește")}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Feedback / Error banner */}
@@ -728,6 +770,53 @@ export function LobbyScreen({
               {t("lobby.waitingHost", "Waiting for host to start challenge...")}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Leave Confirmation Modal */}
+      {showLeaveConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-[#FCC8D0] text-center animate-scaleUp">
+            <div className="w-14 h-14 bg-[#FFF0F2] rounded-2xl flex items-center justify-center mx-auto mb-4 text-[#C0384E]">
+              <AlertTriangle size={28} />
+            </div>
+            <h3
+              className="text-[18px] font-extrabold text-[#1A2816] mb-2"
+              style={{ fontFamily: "'Lexend', sans-serif" }}
+            >
+              {t("lobby.leaveConfirmTitle", "Părăsești sesiunea?")}
+            </h3>
+            <p
+              className="text-[13px] text-[#6B7C6B] leading-relaxed mb-6 font-semibold"
+              style={{ fontFamily: "'Nunito', sans-serif" }}
+            >
+              {t(
+                "lobby.leaveConfirmDesc",
+                "Ești sigur că vrei să părăsești sesiunea? Nu vei mai putea reintra în acest lobby."
+              )}
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowLeaveConfirm(false)}
+                className="flex-1 py-3 rounded-xl border border-[#D8E8D0] bg-[#F7FBF5] text-[#1A2816] font-bold text-[14px] hover:bg-[#E8F5E2] transition-all cursor-pointer"
+                style={{ fontFamily: "'Lexend', sans-serif" }}
+              >
+                {t("common.cancel", "Anulează")}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLeaveConfirm(false);
+                  _onLeave?.();
+                }}
+                className="flex-1 py-3 rounded-xl bg-[#C0384E] text-white font-bold text-[14px] shadow-md hover:bg-[#A32A3E] active:scale-95 transition-all cursor-pointer"
+                style={{ fontFamily: "'Lexend', sans-serif" }}
+              >
+                {t("lobby.confirmLeaveBtn", "Da, părăsește")}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
